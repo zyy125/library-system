@@ -3,29 +3,39 @@ package database
 import (
 	"log"
 	"time"
+	"fmt"
 	"library-system/model"
+	"library-system/config"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
-var DB *gorm.DB
+func MigrateSQL(db *gorm.DB) error{
+	err := db.AutoMigrate(
+		&model.User{},
+		&model.Category{},
+		&model.Book{},
+		&model.BorrowRecord{},
+	)
+	if err != nil {
+		return fmt.Errorf("MySQL自动迁移失败: %v", err)
+	}
+	return nil
+}
 
-func InitMySQL(dsn string) {
-	var err error
+func InitMySQL() (*gorm.DB, error){
+	sqlCfg := config.Load()
 
-	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
+	db, err := gorm.Open(mysql.Open(sqlCfg.DSN), &gorm.Config{})
 
 	if err != nil {
-		log.Fatalf("MySQL 连接失败: %v", err)
+		return nil, fmt.Errorf("MySQL 连接失败: %v", err)
 	}
 
-	sqlDB, err := DB.DB()
+	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("获取底层 DB 失败: %v", err)
+		return nil, fmt.Errorf("获取底层 DB 失败: %v", err)
 	}
 
 	sqlDB.SetMaxIdleConns(10)           // 最大空闲连接数
@@ -33,11 +43,11 @@ func InitMySQL(dsn string) {
     sqlDB.SetConnMaxLifetime(time.Hour) // 连接最长可复用时间
 
 	log.Println("MySQL 已连接")
+
+	if err = MigrateSQL(db); err != nil {
+		return nil, fmt.Errorf("获取底层 DB 失败: %v", err)
+	}
+	
+	return db, nil
 }
 
-func MigrateSQL() {
-	err := DB.AutoMigrate(&model.Book{}, &model.BorrowRecord{}, &model.Category{}, &model.User{})
-	if err != nil {
-		log.Fatalf("MySQL自动迁移失败: %v", err)
-	}
-}

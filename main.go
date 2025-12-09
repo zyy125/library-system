@@ -1,12 +1,18 @@
 package main
 
 import (
-	"library-system/config"
-	"library-system/database"
+	"library-system/app"
+	"library-system/router"
+	"log"
 )
 
 func main() {
-	cfg := config.Load()
-	database.InitMySQL(cfg.DSN)
-	database.MigrateSQL()
+	userCtl, err := app.InitApp() 
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	r := router.SetupRouter(userCtl)
+
+	r.Run(":8080")
 }
