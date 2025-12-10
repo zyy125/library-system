@@ -21,17 +21,24 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *model.User) error
 }
 
 func (r *UserRepository) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
-	// user, err := gorm.G[model.User](r.db).Where("username = ?", username).First(ctx)
-	// if err != nil {
-	// 	if errors.Is(err, gorm.ErrRecordNotFound) {
-	// 		return nil, nil
-	// 	}
-	// 	return nil, err
-	// }
+	user, err := gorm.G[model.User](r.db).Where("username = ?", username).First(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
 
-	// return user, nil
+	return &user, nil
 }
 
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
-
+	user, err := gorm.G[model.User](r.db).Where("email = ?", email).First(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
 }
