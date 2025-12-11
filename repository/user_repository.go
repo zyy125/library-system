@@ -20,6 +20,18 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *model.User) error
 	return gorm.G[model.User](r.db).Create(ctx, user)
 }
 
+func (r *UserRepository) GetUserByUserID(ctx context.Context, id uint64) (*model.User, error) {
+	user, err := gorm.G[model.User](r.db).Where("id = ?", id).First(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (r *UserRepository) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
 	user, err := gorm.G[model.User](r.db).Where("username = ?", username).First(ctx)
 	if err != nil {

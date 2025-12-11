@@ -12,6 +12,12 @@ func InitApp() (*controller.UserController, error) {
 	if err != nil {
 		return nil, err
 	}
+	rdb, err := database.InitRedis()
+	if err != nil {
+		return nil, err
+	}
+
+	repository.NewRedis(rdb)
 
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo)

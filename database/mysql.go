@@ -25,6 +25,7 @@ func MigrateSQL(db *gorm.DB) error{
 }
 
 func InitMySQL() (*gorm.DB, error){
+	
 	sqlCfg := config.Load()
 
 	db, err := gorm.Open(mysql.Open(sqlCfg.DSN), &gorm.Config{})
