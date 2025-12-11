@@ -8,6 +8,7 @@ import (
 	"library-system/model"
 	"library-system/repository"
 	"library-system/utils"
+	"time"
 )
 
 type UserService struct {
@@ -153,7 +154,7 @@ func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshT
 		return response.UserTokenRefreshResponse{}, common.ErrInvalidToken
 	}
 
-	// 生成新的 Token Pair（推荐：同时刷新 Refresh Token）
+	// 生成新的 Token Pair
 	newAccessToken, newRefreshToken, newTokenID, err := utils.GenerateTokenPair(
 		user.ID,
 		user.Username,
@@ -186,6 +187,67 @@ func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshT
 		TokenType: "Bearer",
 		ExpiresIn: 86400,
 		User: userResponse,
+	}
+
+	return data, nil
+}
+
+func (s *UserService) Logout(ctx context.Context, userID uint64, tokenID string) error {
+	if err := repository.Rdb.DeleteRefreshToken(ctx, userID, tokenID); err != nil {
+		return err
+	}
+
+	if err := repository.Rdb.AddToBlacklist(ctx, tokenID, 24*time.Hour); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (response.GetUserMsgResponse, error) {
+	user, err := s.userRepo.GetUserByUserID(ctx, userID)
+	if err != nil {
+		return response.GetUserMsgResponse{}, err
+	}
+
+	data := response.GetUserMsgResponse{
+		ID: userID,             
+		Username: user.Username,
+		Email: user.Email,
+		Phone: user.Phone,
+		Role: user.Phone,
+		Status: user.Status,
+		BorrowLimit: user.BorrowLimit,    
+		BorrowingCount: user.BorrowingCount, 
+		OverdueCount: user.OverdueCount,
+	}
+
+	return data, nil
+}
+
+func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req request.UpdateUserRequest) (response.UpdateUserResponse, error) {
+	updates := make(map[string]interface{})
+
+	if req.Email != nil {
+		updates["email"] = *req.Email
+	}
+	if req.Username != nil {
+		updates["username"] = *req.Username
+	}
+	if req.Phone != nil {
+		updates["phone"] = *req.Phone
+	}
+
+	if err := s.userRepo.UpdateUserFields(ctx, userID, updates); err != nil {
+		return response.UpdateUserResponse{}, err
+	}
+
+	data := response.UpdateUserResponse{
+		ID: userID,
+		Username: *req.Username,
+		Email: *req.Email,
+		Phone: *req.Phone,
+		UpdatedAt: time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 	}
 
 	return data, nil

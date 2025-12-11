@@ -54,3 +54,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 	}
 	return &user, nil
 }
+
+func (r *UserRepository) UpdateUserFields(ctx context.Context, id uint64, fields map[string]interface{}) error {
+	    return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Updates(fields).Error
+}

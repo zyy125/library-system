@@ -19,12 +19,13 @@ func SetupRouter(userCtl *controller.UserController) *gin.Engine{
 			users.POST("/login", userCtl.Login)
 			users.POST("/refresh-token", userCtl.RefreshToken)
 
-			// auth := users.Group("", middleware.AuthMiddleware())
-			// {
-
-			// }
+			auth := users.Group("", middleware.AuthMiddleware())
+			{
+				auth.POST("/logout", userCtl.Logout)
+				auth.GET("/me", userCtl.GetUserMsg)
+				auth.PUT("/me", userCtl.UpdateUser)
+			}
 		}
-		
 	}
 
 	return r

@@ -25,7 +25,7 @@ func Success(c *gin.Context, code int, msg string, data interface{}) {
 		Code: code,
 		Message: msg,
 		Data: data,
-		Timestamp: time.Now().Format(time.RFC3339),
+		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 	})
 }
 
@@ -35,7 +35,7 @@ func ServerError(c *gin.Context,httpStatus int, code int, message string) {
 		Message: message,
 		Errors: []FieldError{},
 		Details: map[string]interface{}{},
-		Timestamp: time.Now().Format(time.RFC3339),
+		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 	})
 }
 // 字段验证错误
@@ -45,7 +45,7 @@ func ValidationError(c *gin.Context, errors []FieldError) {
 		Message:   "参数验证失败",
 		Errors:    errors,
 		Details:   map[string]interface{}{},
-		Timestamp: time.Now().Format(time.RFC3339),
+		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 	})
 }
 // 业务错误
@@ -58,7 +58,7 @@ func ErrorWithDetails(c *gin.Context, httpStatus int, code int, message string, 
 		Message:   message,
 		Errors:    []FieldError{},
 		Details:   details,
-		Timestamp: time.Now().Format(time.RFC3339),
+		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 	})
 }
 

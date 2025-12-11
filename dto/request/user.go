@@ -15,3 +15,9 @@ type UserLoginRequest struct {
 type UserRefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
+
+type UpdateUserRequest struct {
+	Username *string `json:"username" binding:"omitempty,min=4,max=20,alphanumunicode"`
+	Email 	 *string `json:"email" binding:"omitempty,email"`
+	Phone    *string `json:"phone" binding:"omitempty,len=11,numeric"`
+}

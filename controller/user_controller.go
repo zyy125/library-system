@@ -72,3 +72,50 @@ func (ctl *UserController) RefreshToken(c *gin.Context) {
 
 	common.Success(c, 200, "Token刷新成功", data)
 } 
+
+func (ctl *UserController) Logout (c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, _ := c.Get("user_id")
+	tokenID, _ := c.Get("token_id")
+	if err := ctl.userService.Logout(ctx, userID.(uint64), tokenID.(string)); err != nil {
+		c.Error(err)
+		return
+	}
+	
+	common.Success(c, 200, "登出成功", gin.H{})
+}
+
+func (ctl *UserController) GetUserMsg (c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, _ := c.Get("user_id")
+
+	data, err := ctl.userService.GetUserMsg(ctx, userID.(uint64))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	common.Success(c, 200,"success" ,data)
+}
+
+func (ctl *UserController) UpdateUser (c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, _ := c.Get("user_id")
+	var req request.UpdateUserRequest
+	err := common.ValidateStruct(c, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	data, err := ctl.userService.UpdateUser(ctx, userID.(uint64), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	common.Success(c, 200, "更新成功", data)
+}
