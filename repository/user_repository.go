@@ -44,7 +44,7 @@ func (r *UserRepository) UpdateUserFields(ctx context.Context, id uint64, fields
 	    return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Updates(fields).Error
 }
 
-func (r *UserRepository) List(ctx context.Context, query request.GetUserListRequest) ([]model.User, int64, error) {
+func (r *UserRepository) List(ctx context.Context, query *request.GetUserListRequest) ([]model.User, int64, error) {
 	var users []model.User
 	db := r.db.WithContext(ctx).Model(&model.User{})
 

@@ -27,7 +27,7 @@ func (ctl *UserController) Register(c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.Register(ctx, req)
+	data, err := ctl.userService.Register(ctx, &req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -46,7 +46,7 @@ func (ctl *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.Login(ctx, req)
+	data, err := ctl.userService.Login(ctx, &req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -65,7 +65,7 @@ func (ctl *UserController) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.RefreshToken(ctx, req)
+	data, err := ctl.userService.RefreshToken(ctx, &req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -112,7 +112,7 @@ func (ctl *UserController) UpdateUser (c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.UpdateUser(ctx, userID.(uint64), req)
+	data, err := ctl.userService.UpdateUser(ctx, userID.(uint64), &req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -132,7 +132,7 @@ func (ctl *UserController) ChangePwd (c *gin.Context) {
 		return
 	}
 
-	if err := ctl.userService.ChangePwd(ctx, userID.(uint64), tokenID.(string), req); err !=  nil {
+	if err := ctl.userService.ChangePwd(ctx, userID.(uint64), tokenID.(string), &req); err !=  nil {
 		c.Error(err)
 		return
 	}
@@ -149,7 +149,7 @@ func (ctl *UserController) GetUserList(c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.GetUserList(ctx, req)
+	data, err := ctl.userService.GetUserList(ctx, &req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -167,7 +167,7 @@ func (ctl *UserController) CreateUser(c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.CreateUser(ctx, req)
+	data, err := ctl.userService.CreateUser(ctx, &req)
 	if err != nil {
 		c.Error(err)
 		return		
@@ -191,7 +191,7 @@ func (ctl *UserController) UpdateUserByAdmin(c *gin.Context) {
 		return
 	}
 
-	data, err := ctl.userService.UpdateUserByAdmin(ctx, id, req)
+	data, err := ctl.userService.UpdateUserByAdmin(ctx, id, &req)
 	if err != nil {
 		c.Error(err)
 		return		

@@ -12,12 +12,12 @@ import (
 
 func main() {
 	log.Println("aaa")
-	userCtl, err := app.InitApp() 
+	ctl, err := app.InitApp() 
 	if err != nil {
 		log.Fatal(err)
 	}
 	
-	r := router.SetupRouter(userCtl)
+	r := router.SetupRouter(ctl)
 
 	go func() {
 		log.Println("服务器启动在 : 8080")

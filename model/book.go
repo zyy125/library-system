@@ -21,7 +21,7 @@ type Book struct {
     CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
     UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-    Category Category 	  `gorm:"foreignKey:CategoryID"`
+    Category    Category    `gorm:"foreignKey:CategoryID"`
 }
 
 type Category struct {

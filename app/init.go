@@ -7,7 +7,7 @@ import(
 	"library-system/service"
 )
 
-func InitApp() (*controller.UserController, error) {
+func InitApp() (*controller.Controller, error) {
 	db, err := database.InitMySQL()
 	if err != nil {
 		return nil, err
@@ -23,5 +23,12 @@ func InitApp() (*controller.UserController, error) {
 	userService := service.NewUserService(userRepo)
 	userCtl := controller.NewUserController(userService)
 
-	return userCtl, nil
+	bookRepo := repository.NewBookRepository(db)
+	cateRepo := repository.NewCategoryRepository(db)
+	bookService := service.NewBookService(bookRepo, cateRepo)
+	bookCtl := controller.NewBookController(bookService)
+
+	ctl := controller.NewController(userCtl, bookCtl)
+	
+	return ctl, nil
 }

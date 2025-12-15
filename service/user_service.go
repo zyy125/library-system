@@ -22,7 +22,7 @@ func NewUserService(repo *repository.UserRepository) *UserService {
 	return &UserService{userRepo: repo}
 }
 
-func (s *UserService) Register(ctx context.Context, req request.UserRegisterRequest) (response.UserRegisterResponse, error) {
+func (s *UserService) Register(ctx context.Context, req *request.UserRegisterRequest) (*response.UserRegisterResponse, error) {
 	user := model.User{
 		Username: req.Username,
 		Password: req.Password,
@@ -31,39 +31,34 @@ func (s *UserService) Register(ctx context.Context, req request.UserRegisterRequ
 	}
 
 	// 判断是否存在相同用户名
-	_, err := s.userRepo.GetUserByUsername(ctx, user.Username)
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-    		return response.UserRegisterResponse{}, common.ErrUsernameExist
-		}
-		return response.UserRegisterResponse{}, err
+	if _, err := s.userRepo.GetUserByUsername(ctx, user.Username); err == nil {
+		return nil, common.ErrUsernameExist
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// 判断是否存在相同邮箱
-	_, err = s.userRepo.GetUserByEmail(ctx, user.Email)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-    		return response.UserRegisterResponse{}, common.ErrEmailExist
-		}
-		return response.UserRegisterResponse{}, err
+	if _, err := s.userRepo.GetUserByUsername(ctx, user.Username); err == nil {
+		return nil, common.ErrEmailExist
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// 加密密码
 	hashedPwd, err := utils.HashPassword(user.Password)
 	if err != nil {
-		return response.UserRegisterResponse{}, err
+		return nil, err
 	}
 	user.Password = hashedPwd
 
 	// 调用数据库函数
 	err = s.userRepo.CreateUser(ctx, &user)
 	if err != nil {
-		return response.UserRegisterResponse{}, err
+		return nil, err
 	}
 
 	// 构建返回值
-	data := response.UserRegisterResponse{
+	data := &response.UserRegisterResponse{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -74,24 +69,24 @@ func (s *UserService) Register(ctx context.Context, req request.UserRegisterRequ
 	return data, nil
 }
 
-func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (response.UserLoginResponse, error) {
+func (s *UserService) Login(ctx context.Context, req *request.UserLoginRequest) (*response.UserLoginResponse, error) {
 	// 调用数据库函数
 	user, err := s.userRepo.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-    		return response.UserLoginResponse{}, common.ErrInvalidAuth
+    		return nil, common.ErrInvalidAuth
 		}
-		return response.UserLoginResponse{}, err
+		return nil, err
 	}
 
 	if user.Status == "disabled" {
-		return response.UserLoginResponse{}, common.ErrUserDisabled
+		return nil, common.ErrUserDisabled
 	}
 
 	// 验证密码
 	err = utils.CheckPassword(user.Password, req.Password)
 	if err != nil {
-		return response.UserLoginResponse{}, common.ErrInvalidAuth
+		return nil, common.ErrInvalidAuth
 	}
 
 	accessToken, refreshToken, tokenID, err := utils.GenerateTokenPair(
@@ -100,12 +95,12 @@ func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (
 		user.Role,
 	)
 	if err != nil {
-		return response.UserLoginResponse{}, common.ErrInternalServer
+		return nil, common.ErrInternalServer
 	}
 
 	err = repository.Rdb.StoreRefreshToken(ctx, user.ID, tokenID, refreshToken)
 	if err != nil {
-		return response.UserLoginResponse{}, err
+		return nil, err
 	}
 
 	userResponse := response.UserResponse{
@@ -116,7 +111,7 @@ func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (
 	}
 
 	// 构建返回值
-	data := response.UserLoginResponse{
+	data := &response.UserLoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
@@ -127,35 +122,35 @@ func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (
 	return data, nil
 }
 
-func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshTokenRequest) (response.UserTokenRefreshResponse, error) {
+func (s *UserService) RefreshToken(ctx context.Context, req *request.UserRefreshTokenRequest) (*response.UserTokenRefreshResponse, error) {
 	// 验证 Refresh Token
 	claims, err := utils.ValidateRefreshToken(req.RefreshToken)
 	if err != nil {
-		return response.UserTokenRefreshResponse{}, common.ErrInvalidToken
+		return nil, common.ErrInvalidToken
 	}
 
 	// 从 Redis 验证 Token 是否存在
 	storedToken, err := repository.Rdb.GetRefreshToken(ctx, claims.UserID, claims.TokenID)
 	if err != nil || storedToken != req.RefreshToken {
-		return response.UserTokenRefreshResponse{}, common.ErrInvalidToken
+		return nil, common.ErrInvalidToken
 	}
 
 	// 检查是否在黑名单
 	inBlacklist, err := repository.Rdb.IsInBlacklist(ctx, claims.TokenID)
 	if err != nil {
-		return response.UserTokenRefreshResponse{}, common.ErrInternalServer
+		return nil, common.ErrInternalServer
 	}
 	if inBlacklist {
-		return response.UserTokenRefreshResponse{}, common.ErrInvalidToken
+		return nil, common.ErrInvalidToken
 	}
 
 	// 查询用户信息（获取最新的 role 等信息）
 	user, err := s.userRepo.GetUserByUserID(ctx, claims.UserID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-    		return response.UserTokenRefreshResponse{}, common.ErrInvalidAuth
+    		return nil, common.ErrInvalidAuth
 		}
-		return response.UserTokenRefreshResponse{}, err
+		return nil, err
 	}
 
 	// 生成新的 Token Pair
@@ -165,17 +160,17 @@ func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshT
 		user.Role,
 	)
 	if err != nil {
-		return response.UserTokenRefreshResponse{}, common.ErrInternalServer
+		return nil, common.ErrInternalServer
 	}
 
 	// 删除旧的 Refresh Token
 	if err := repository.Rdb.DeleteRefreshToken(ctx, claims.UserID, claims.TokenID); err != nil {
-		return response.UserTokenRefreshResponse{}, common.ErrInternalServer
+		return nil, common.ErrInternalServer
 	}
 
 	// 存储新的 Refresh Token
 	if err := repository.Rdb.StoreRefreshToken(ctx, user.ID, newTokenID, newRefreshToken); err != nil {
-		return response.UserTokenRefreshResponse{}, common.ErrInternalServer
+		return nil, common.ErrInternalServer
 	}
 
 	userResponse := response.UserResponse{
@@ -185,7 +180,7 @@ func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshT
 		Role:     user.Role,
 	}
 
-	data := response.UserTokenRefreshResponse{
+	data := &response.UserTokenRefreshResponse{
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
 		TokenType:    "Bearer",
@@ -208,13 +203,13 @@ func (s *UserService) Logout(ctx context.Context, userID uint64, tokenID string)
 	return nil
 }
 
-func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (response.GetUserMsgResponse, error) {
+func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (*response.GetUserMsgResponse, error) {
 	user, err := s.userRepo.GetUserByUserID(ctx, userID)
 	if err != nil {
-		return response.GetUserMsgResponse{}, err
+		return nil, err
 	}
 
-	data := response.GetUserMsgResponse{
+	data := &response.GetUserMsgResponse{
 		ID:             userID,
 		Username:       user.Username,
 		Email:          user.Email,
@@ -230,11 +225,11 @@ func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (response.G
 	return data, nil
 }
 
-func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req request.UpdateUserRequest) (response.UpdateUserResponse, error) {
+func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req *request.UpdateUserRequest) (*response.UpdateUserResponse, error) {
 	if req.Email == nil &&
 		req.Phone == nil&&
 		req.Username == nil {
-		return response.UpdateUserResponse{}, common.ErrBadRequest
+		return nil, common.ErrBadRequest
 	}
 
 	updates := make(map[string]interface{})
@@ -250,10 +245,10 @@ func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req request
 	}
 
 	if err := s.userRepo.UpdateUserFields(ctx, userID, updates); err != nil {
-		return response.UpdateUserResponse{}, err
+		return nil, err
 	}
 
-	data := response.UpdateUserResponse{
+	data := &response.UpdateUserResponse{
 		ID:        userID,
 		Username:  *req.Username,
 		Email:     *req.Email,
@@ -264,7 +259,7 @@ func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req request
 	return data, nil
 }
 
-func (s *UserService) ChangePwd(ctx context.Context, userID uint64, tokenID string, req request.ChangePwdRequest) error {
+func (s *UserService) ChangePwd(ctx context.Context, userID uint64, tokenID string, req *request.ChangePwdRequest) error {
 	user, err := s.userRepo.GetUserByUserID(ctx, userID)
 	if err != nil {
 		return err
@@ -298,7 +293,7 @@ func (s *UserService) ChangePwd(ctx context.Context, userID uint64, tokenID stri
 	return nil
 }
 
-func (s *UserService) GetUserList(ctx context.Context, req request.GetUserListRequest) (response.GetUserListResponse, error) {
+func (s *UserService) GetUserList(ctx context.Context, req *request.GetUserListRequest) (*response.GetUserListResponse, error) {
 	// 参数校验
 	if req.Page <= 0 {
 		req.Page = 1
@@ -307,15 +302,15 @@ func (s *UserService) GetUserList(ctx context.Context, req request.GetUserListRe
 		req.Limit = 10
 	}
 	if req.Role != "" && req.Role != "admin" && req.Role != "user" {
-		return response.GetUserListResponse{}, common.ErrNotFound
+		return nil, common.ErrNotFound
 	}
 	if req.Status != "" && req.Status != "active" && req.Status != "disabled" {
-		return response.GetUserListResponse{}, common.ErrNotFound
+		return nil, common.ErrNotFound
 	}
 
 	users, count, err := s.userRepo.List(ctx, req)
 	if err != nil {
-		return response.GetUserListResponse{}, err
+		return nil, err
 	}
 
 	list := make([]response.GetUserMsgResponse, 0, len(users))
@@ -335,7 +330,7 @@ func (s *UserService) GetUserList(ctx context.Context, req request.GetUserListRe
 	}
 
 	totalPages := int(math.Ceil(float64(count) / float64(req.Limit)))
-	res := response.GetUserListResponse{
+	res := &response.GetUserListResponse{
 		Total: int(count),
 		Page: req.Page,	
 		Limit: req.Limit,
@@ -346,7 +341,7 @@ func (s *UserService) GetUserList(ctx context.Context, req request.GetUserListRe
 	return res, nil
 }
 
-func (s *UserService) CreateUser(ctx context.Context, req request.CreateUserRequest) (response.CreateUserResponse, error) {
+func (s *UserService) CreateUser(ctx context.Context, req *request.CreateUserRequest) (*response.CreateUserResponse, error) {
 	user := model.User{
 		Username: req.Username,
 		Password: req.Password,
@@ -357,38 +352,34 @@ func (s *UserService) CreateUser(ctx context.Context, req request.CreateUserRequ
 	}
 
 	// 判断是否存在相同用户名
-	_, err := s.userRepo.GetUserByUsername(ctx, user.Username)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-    		return response.CreateUserResponse{}, common.ErrUsernameExist
-		}
-		return response.CreateUserResponse{}, err
+	if _, err := s.userRepo.GetUserByUsername(ctx, user.Username); err == nil {
+		return nil, common.ErrUsernameExist
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// 判断是否存在相同邮箱
-	_, err = s.userRepo.GetUserByEmail(ctx, user.Email)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-    		return response.CreateUserResponse{}, common.ErrEmailExist
-		}
-		return response.CreateUserResponse{}, err
+	if _, err := s.userRepo.GetUserByUsername(ctx, user.Username); err == nil {
+		return nil, common.ErrEmailExist
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// 加密密码
 	hashedPwd, err := utils.HashPassword(user.Password)
 	if err != nil {
-		return response.CreateUserResponse{}, err
+		return nil, err
 	}
 	user.Password = hashedPwd	
 
 	// 调用数据库函数
 	err = s.userRepo.CreateUser(ctx, &user)
 	if err != nil {
-		return response.CreateUserResponse{}, err
+		return nil, err
 	}
 
 	// 构建返回值
-	data := response.CreateUserResponse{
+	data := &response.CreateUserResponse{
 		ID:          user.ID,
 		Username:    user.Username,
 		Email:       user.Email,
@@ -401,7 +392,7 @@ func (s *UserService) CreateUser(ctx context.Context, req request.CreateUserRequ
 	return data, nil
 }
 
-func (s *UserService) UpdateUserByAdmin(ctx context.Context, id uint64, req request.UpdateUserByAdminRequest) (response.UpdateUserByAdminResponse, error) {
+func (s *UserService) UpdateUserByAdmin(ctx context.Context, id uint64, req *request.UpdateUserByAdminRequest) (*response.UpdateUserByAdminResponse, error) {
 	updates := make(map[string]interface{})
 
 	if req.Email == nil &&
@@ -410,7 +401,7 @@ func (s *UserService) UpdateUserByAdmin(ctx context.Context, id uint64, req requ
 		req.BorrowLimit == nil &&
 		req.Phone == nil&&
 		req.Username == nil {
-		return response.UpdateUserByAdminResponse{}, common.ErrBadRequest
+		return nil, common.ErrBadRequest
 	}
 
 	if req.Email != nil {
@@ -433,10 +424,10 @@ func (s *UserService) UpdateUserByAdmin(ctx context.Context, id uint64, req requ
 	}
 
 	if err := s.userRepo.UpdateUserFields(ctx, id, updates); err != nil {
-		return response.UpdateUserByAdminResponse{}, err
+		return nil, err
 	}
 
-	res := response.UpdateUserByAdminResponse{
+	res := &response.UpdateUserByAdminResponse{
 		ID:          id,
 		Username:    *req.Username,
 		Email:       *req.Email,

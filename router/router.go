@@ -7,8 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(userCtl *controller.UserController) *gin.Engine {
+func SetupRouter(ctl *controller.Controller) *gin.Engine {
 	r := gin.Default()
+
+	userCtl := ctl.UserController
+	bookCtl := ctl.BookController
 
 	r.Use(middleware.ErrorHandler())
 	r.Use(gin.Recovery())
@@ -33,6 +36,17 @@ func SetupRouter(userCtl *controller.UserController) *gin.Engine {
 					admin.POST("", userCtl.CreateUser)
 					admin.PUT("/:id", userCtl.UpdateUserByAdmin)
 					admin.DELETE("/:id", userCtl.DeleteUser)
+				}
+			}
+		}
+
+		books := api.Group("/books")
+		{
+			auth := books.Group("", middleware.AuthMiddleware())
+			{
+				admin := auth.Group("", middleware.RoleMiddleware())
+				{
+					admin.POST("", bookCtl.CreateBook)
 				}
 			}
 		}
