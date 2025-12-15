@@ -9,13 +9,16 @@ import (
 	"library-system/repository"
 	"library-system/utils"
 	"time"
+	"errors"
+	"gorm.io/gorm"
+	"math"
 )
 
 type UserService struct {
 	userRepo *repository.UserRepository
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService{
+func NewUserService(repo *repository.UserRepository) *UserService {
 	return &UserService{userRepo: repo}
 }
 
@@ -23,26 +26,27 @@ func (s *UserService) Register(ctx context.Context, req request.UserRegisterRequ
 	user := model.User{
 		Username: req.Username,
 		Password: req.Password,
-		Email: req.Email,
-		Phone: req.Phone,
+		Email:    req.Email,
+		Phone:    req.Phone,
 	}
 
 	// 判断是否存在相同用户名
-	existingUser, err := s.userRepo.GetUserByUsername(ctx, user.Username)
+	_, err := s.userRepo.GetUserByUsername(ctx, user.Username)
+
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+    		return response.UserRegisterResponse{}, common.ErrUsernameExist
+		}
 		return response.UserRegisterResponse{}, err
-	}
-	if existingUser != nil {
-		return response.UserRegisterResponse{}, common.ErrUsernameExist
 	}
 
 	// 判断是否存在相同邮箱
-	existingUser, err = s.userRepo.GetUserByEmail(ctx, user.Email)
+	_, err = s.userRepo.GetUserByEmail(ctx, user.Email)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+    		return response.UserRegisterResponse{}, common.ErrEmailExist
+		}
 		return response.UserRegisterResponse{}, err
-	}
-	if existingUser != nil {
-	return response.UserRegisterResponse{}, common.ErrEmailExist
 	}
 
 	// 加密密码
@@ -60,10 +64,10 @@ func (s *UserService) Register(ctx context.Context, req request.UserRegisterRequ
 
 	// 构建返回值
 	data := response.UserRegisterResponse{
-		ID: user.ID,
-		Username: user.Username,
-		Email: user.Email,
-		Role: user.Role,
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		Role:      user.Role,
 		CreatedAt: user.CreatedAt,
 	}
 
@@ -74,10 +78,10 @@ func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (
 	// 调用数据库函数
 	user, err := s.userRepo.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+    		return response.UserLoginResponse{}, common.ErrInvalidAuth
+		}
 		return response.UserLoginResponse{}, err
-	}
-	if user == nil {
-		return response.UserLoginResponse{}, common.ErrInvalidAuth
 	}
 
 	if user.Status == "disabled" {
@@ -97,7 +101,7 @@ func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (
 	)
 	if err != nil {
 		return response.UserLoginResponse{}, common.ErrInternalServer
-	}	
+	}
 
 	err = repository.Rdb.StoreRefreshToken(ctx, user.ID, tokenID, refreshToken)
 	if err != nil {
@@ -105,19 +109,19 @@ func (s *UserService) Login(ctx context.Context, req request.UserLoginRequest) (
 	}
 
 	userResponse := response.UserResponse{
-		ID: user.ID,
+		ID:       user.ID,
 		Username: user.Username,
-		Email: user.Email,
-		Role: user.Role,
+		Email:    user.Email,
+		Role:     user.Role,
 	}
-	
+
 	// 构建返回值
 	data := response.UserLoginResponse{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		TokenType: "Bearer",
-		ExpiresIn: 86400,
-		User: userResponse,
+		TokenType:    "Bearer",
+		ExpiresIn:    86400,
+		User:         userResponse,
 	}
 
 	return data, nil
@@ -148,10 +152,10 @@ func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshT
 	// 查询用户信息（获取最新的 role 等信息）
 	user, err := s.userRepo.GetUserByUserID(ctx, claims.UserID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+    		return response.UserTokenRefreshResponse{}, common.ErrInvalidAuth
+		}
 		return response.UserTokenRefreshResponse{}, err
-	}
-	if user == nil {
-		return response.UserTokenRefreshResponse{}, common.ErrInvalidToken
 	}
 
 	// 生成新的 Token Pair
@@ -175,18 +179,18 @@ func (s *UserService) RefreshToken(ctx context.Context, req request.UserRefreshT
 	}
 
 	userResponse := response.UserResponse{
-		ID: user.ID,
+		ID:       user.ID,
 		Username: user.Username,
-		Email: user.Email,
-		Role: user.Role,
+		Email:    user.Email,
+		Role:     user.Role,
 	}
 
 	data := response.UserTokenRefreshResponse{
-		AccessToken: newAccessToken,	
+		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
-		TokenType: "Bearer",
-		ExpiresIn: 86400,
-		User: userResponse,
+		TokenType:    "Bearer",
+		ExpiresIn:    86400,
+		User:         userResponse,
 	}
 
 	return data, nil
@@ -211,21 +215,28 @@ func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (response.G
 	}
 
 	data := response.GetUserMsgResponse{
-		ID: userID,             
-		Username: user.Username,
-		Email: user.Email,
-		Phone: user.Phone,
-		Role: user.Phone,
-		Status: user.Status,
-		BorrowLimit: user.BorrowLimit,    
-		BorrowingCount: user.BorrowingCount, 
-		OverdueCount: user.OverdueCount,
+		ID:             userID,
+		Username:       user.Username,
+		Email:          user.Email,
+		Phone:          user.Phone,
+		Role:           user.Phone,
+		Status:         user.Status,
+		BorrowLimit:    user.BorrowLimit,
+		BorrowingCount: user.BorrowingCount,
+		OverdueCount:   user.OverdueCount,
+		CreatedAt:		user.CreatedAt.UTC().Format(time.RFC3339),
 	}
 
 	return data, nil
 }
 
 func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req request.UpdateUserRequest) (response.UpdateUserResponse, error) {
+	if req.Email == nil &&
+		req.Phone == nil&&
+		req.Username == nil {
+		return response.UpdateUserResponse{}, common.ErrBadRequest
+	}
+
 	updates := make(map[string]interface{})
 
 	if req.Email != nil {
@@ -243,12 +254,221 @@ func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req request
 	}
 
 	data := response.UpdateUserResponse{
-		ID: userID,
-		Username: *req.Username,
-		Email: *req.Email,
-		Phone: *req.Phone,
-		UpdatedAt: time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+		ID:        userID,
+		Username:  *req.Username,
+		Email:     *req.Email,
+		Phone:     *req.Phone,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
 	return data, nil
+}
+
+func (s *UserService) ChangePwd(ctx context.Context, userID uint64, tokenID string, req request.ChangePwdRequest) error {
+	user, err := s.userRepo.GetUserByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if err := utils.CheckPassword(user.Password, req.OldPassword); err != nil {
+		return common.ErrInvalidAuth
+	}
+
+	new, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	update := make(map[string]interface{})
+	update["password"] = new
+
+	err = s.userRepo.UpdateUserFields(ctx, userID, update)
+	if err != nil {
+		return err
+	}
+
+	if err := repository.Rdb.DeleteRefreshToken(ctx, userID, tokenID); err != nil {
+		return err
+	}
+
+	if err := repository.Rdb.AddToBlacklist(ctx, tokenID, 24*time.Hour); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *UserService) GetUserList(ctx context.Context, req request.GetUserListRequest) (response.GetUserListResponse, error) {
+	// 参数校验
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.Limit <= 0 || req.Limit > 100 {
+		req.Limit = 10
+	}
+	if req.Role != "" && req.Role != "admin" && req.Role != "user" {
+		return response.GetUserListResponse{}, common.ErrNotFound
+	}
+	if req.Status != "" && req.Status != "active" && req.Status != "disabled" {
+		return response.GetUserListResponse{}, common.ErrNotFound
+	}
+
+	users, count, err := s.userRepo.List(ctx, req)
+	if err != nil {
+		return response.GetUserListResponse{}, err
+	}
+
+	list := make([]response.GetUserMsgResponse, 0, len(users))
+	for _, u := range users {
+		list = append(list, response.GetUserMsgResponse{
+			ID:             u.ID,
+			Username:       u.Username,
+			Email:          u.Email,
+			Phone:          u.Phone,
+			Role:           u.Role,
+			Status:         u.Status,
+			BorrowLimit:    u.BorrowLimit,
+			BorrowingCount: u.BorrowingCount,
+			OverdueCount:   u.OverdueCount,
+			CreatedAt:      u.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+
+	totalPages := int(math.Ceil(float64(count) / float64(req.Limit)))
+	res := response.GetUserListResponse{
+		Total: int(count),
+		Page: req.Page,	
+		Limit: req.Limit,
+		TotalPages: totalPages,
+		Users: list,
+	}
+
+	return res, nil
+}
+
+func (s *UserService) CreateUser(ctx context.Context, req request.CreateUserRequest) (response.CreateUserResponse, error) {
+	user := model.User{
+		Username: req.Username,
+		Password: req.Password,
+		Email: req.Email,
+		Phone: req.Phone,
+		Role: req.Role,
+		BorrowLimit: req.BorrowLimit,
+	}
+
+	// 判断是否存在相同用户名
+	_, err := s.userRepo.GetUserByUsername(ctx, user.Username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+    		return response.CreateUserResponse{}, common.ErrUsernameExist
+		}
+		return response.CreateUserResponse{}, err
+	}
+
+	// 判断是否存在相同邮箱
+	_, err = s.userRepo.GetUserByEmail(ctx, user.Email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+    		return response.CreateUserResponse{}, common.ErrEmailExist
+		}
+		return response.CreateUserResponse{}, err
+	}
+
+	// 加密密码
+	hashedPwd, err := utils.HashPassword(user.Password)
+	if err != nil {
+		return response.CreateUserResponse{}, err
+	}
+	user.Password = hashedPwd	
+
+	// 调用数据库函数
+	err = s.userRepo.CreateUser(ctx, &user)
+	if err != nil {
+		return response.CreateUserResponse{}, err
+	}
+
+	// 构建返回值
+	data := response.CreateUserResponse{
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Role:        user.Role,
+		Status:      user.Status,
+		BorrowLimit: user.BorrowLimit,
+		CreatedAt:   user.CreatedAt.UTC().Format(time.RFC3339),
+	}
+
+	return data, nil
+}
+
+func (s *UserService) UpdateUserByAdmin(ctx context.Context, id uint64, req request.UpdateUserByAdminRequest) (response.UpdateUserByAdminResponse, error) {
+	updates := make(map[string]interface{})
+
+	if req.Email == nil &&
+		req.Role == nil &&
+		req.Status == nil &&
+		req.BorrowLimit == nil &&
+		req.Phone == nil&&
+		req.Username == nil {
+		return response.UpdateUserByAdminResponse{}, common.ErrBadRequest
+	}
+
+	if req.Email != nil {
+		updates["email"] = *req.Email
+	}
+	if req.Username != nil {
+		updates["username"] = *req.Username
+	}
+	if req.Phone != nil {
+		updates["phone"] = *req.Phone
+	}
+	if req.BorrowLimit != nil {
+		updates["borrow_limit"] = *req.BorrowLimit
+	}
+	if req.Role != nil {
+		updates["role"] = *req.Role
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+
+	if err := s.userRepo.UpdateUserFields(ctx, id, updates); err != nil {
+		return response.UpdateUserByAdminResponse{}, err
+	}
+
+	res := response.UpdateUserByAdminResponse{
+		ID:          id,
+		Username:    *req.Username,
+		Email:       *req.Email,
+		Phone:       *req.Phone,
+		Role:        *req.Role,
+		Status:      *req.Status,
+		BorrowLimit: *req.BorrowLimit,
+		UpdatedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	return res, nil
+}
+
+func (s *UserService) DeleteUser(ctx context.Context, id uint64) error {
+	user, err := s.userRepo.GetUserByUserID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if user.BorrowingCount > 0 {
+		bizErr := common.NewBizError(400, "无法删除该用户", 400)
+		details := make(map[string]interface{})
+		details["reason"] = "用户有未归还图书"
+		details["unreturned_books"] = user.BorrowingCount
+		bizErr.WithDetails(details)
+		return bizErr
+	}
+
+	err = s.userRepo.DeleteUserByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

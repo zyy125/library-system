@@ -48,3 +48,22 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func RoleMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := c.Get("role")
+		if !exists {
+			c.Error(common.ErrUnauthorized)
+			c.Abort()
+			return
+		}
+
+		if role.(string) != "admin" {
+			c.Error(common.ErrPermissionDenied)
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

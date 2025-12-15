@@ -27,7 +27,7 @@ func ErrorHandler() gin.HandlerFunc{
 			err := c.Errors.Last().Err
 			
 			// 记录错误日志
-			log.Printf("[ERROR] Path: %s, Error: %v", c.Request. URL.Path, err)
+			log.Printf("[ERROR] Path: %s, Error: %v", c.Request.URL.Path, err)
 			
 			// 判断错误类型
 			switch e := err.(type) {

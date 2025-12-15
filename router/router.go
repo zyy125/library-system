@@ -1,12 +1,13 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
 	"library-system/controller"
 	"library-system/middleware"
+
+	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(userCtl *controller.UserController) *gin.Engine{
+func SetupRouter(userCtl *controller.UserController) *gin.Engine {
 	r := gin.Default()
 
 	r.Use(middleware.ErrorHandler())
@@ -24,6 +25,15 @@ func SetupRouter(userCtl *controller.UserController) *gin.Engine{
 				auth.POST("/logout", userCtl.Logout)
 				auth.GET("/me", userCtl.GetUserMsg)
 				auth.PUT("/me", userCtl.UpdateUser)
+				auth.POST("/change-password", userCtl.ChangePwd)
+
+				admin := auth.Group("", middleware.RoleMiddleware())
+				{
+					admin.GET("", userCtl.GetUserList)
+					admin.POST("", userCtl.CreateUser)
+					admin.PUT("/:id", userCtl.UpdateUserByAdmin)
+					admin.DELETE("/:id", userCtl.DeleteUser)
+				}
 			}
 		}
 	}
