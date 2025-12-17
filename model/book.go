@@ -11,7 +11,7 @@ type Book struct {
 	ISBN        string    `json:"isbn" gorm:"type:varchar(20);unique;not null;index:idx_isbn"`
     CategoryID  uint      `json:"category_id" gorm:"index:idx_category;not null"`
     Publisher   string    `json:"publisher" gorm:"type:varchar(100);not null"`
-    PublishDate *time.Time
+    PublishDate *time.Time`json:"publish_date" gorm:"type:date"`
     Price       float64   `json:"price" gorm:"type:decimal(10,2)"`
     Stock       int       `json:"stock" gorm:"default:0"`
     Description string    `json:"description" gorm:"type:text"`

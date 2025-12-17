@@ -28,11 +28,11 @@ type ChangePwdRequest struct {
 }
 
 type GetUserListRequest struct {
-	Page 		int 	`json:"page"`
-	Limit 		int 	`json:"limit"`
-	Username 	string 	`json:"username"`
-	Role 		string 	`json:"role"`
-	Status 		string 	`json:"status"`
+	Page 		int 	`form:"page"`
+	Limit 		int 	`form:"limit"`
+	Username 	string 	`form:"username"`
+	Role 		string 	`form:"role"`
+	Status 		string 	`form:"status"`
 }
 
 type CreateUserRequest struct {

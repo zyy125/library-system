@@ -18,7 +18,7 @@ func (e *ValidError) Error() string {
 
 // ValidateStruct 验证结构体并返回错误
 func ValidateStruct(c *gin.Context, obj interface{}) error {
-	if err := c.ShouldBindJSON(obj); err != nil {
+	if err := c.ShouldBind(obj); err != nil {
 		// 判断是否为验证错误
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
 			fieldErrors := make([]FieldError, 0)

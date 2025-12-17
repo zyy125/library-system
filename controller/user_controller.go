@@ -173,7 +173,7 @@ func (ctl *UserController) CreateUser(c *gin.Context) {
 		return		
 	}
 
-	common.Success(c, 200, "用户创建成功", data)
+	common.Success(c, 201, "用户创建成功", data)
 }
 
 func (ctl *UserController) UpdateUserByAdmin(c *gin.Context) {

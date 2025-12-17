@@ -308,7 +308,7 @@ func (s *UserService) GetUserList(ctx context.Context, req *request.GetUserListR
 		return nil, common.ErrNotFound
 	}
 
-	users, count, err := s.userRepo.List(ctx, req)
+	users, count, err := s.userRepo.GetUserList(ctx, req)
 	if err != nil {
 		return nil, err
 	}

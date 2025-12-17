@@ -47,8 +47,12 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 				admin := auth.Group("", middleware.RoleMiddleware())
 				{
 					admin.POST("", bookCtl.CreateBook)
+					admin.POST("/batch", bookCtl.BatchCreateBook)
+					admin.PUT("/:id", bookCtl.UpdateBook)
 				}
 			}
+			books.GET("/:id", bookCtl.GetBookDetails)
+			books.GET("", bookCtl.GetBookList)
 		}
 	}
 
