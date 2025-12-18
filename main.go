@@ -11,13 +11,12 @@ import (
 )
 
 func main() {
-	log.Println("aaa")
-	ctl, err := app.InitApp() 
+	app, err := app.InitApp() 
 	if err != nil {
 		log.Fatal(err)
 	}
 	
-	r := router.SetupRouter(ctl)
+	r := router.SetupRouter(app.Controller)
 
 	go func() {
 		log.Println("服务器启动在 : 8080")
@@ -31,6 +30,7 @@ func main() {
 	<-quit
 
 	log.Println("服务器正在关闭...")
+	app.Scheduler.Stop()
 	database.CloseRedis()
 	log.Println("服务器已关闭")
 

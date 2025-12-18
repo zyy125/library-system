@@ -2,10 +2,11 @@ package repository
 
 import (
 	"context"
-	"library-system/model"
 	"library-system/dto/request"
+	"library-system/model"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type BookRepository struct {
@@ -14,6 +15,10 @@ type BookRepository struct {
 
 func NewBookRepository(db *gorm.DB) *BookRepository {
 	return &BookRepository{db: db}
+}
+
+func (r *BookRepository) DB() *gorm.DB {
+	return r.db
 }
 
 func (r *BookRepository) GetBookByISBN(ctx context.Context, ISBN string) (model.Book, error) {
@@ -90,5 +95,17 @@ func (r *BookRepository) UpdateBookFields(ctx context.Context, id uint64, fields
 
 func (r *BookRepository) DeleteBookByID(ctx context.Context, id uint64) error {
 	_, err := gorm.G[model.Book](r.db).Where("id = ?", id).Delete(ctx)
+	return err
+}
+
+func (r *BookRepository) GetBookByIDWithLock(ctx context.Context, tx *gorm.DB, id uint64) (model.Book, error) {
+	txLock := tx.Clauses(clause.Locking{Strength: "UPDATE"})
+	
+	return gorm.G[model.Book](txLock).Where("id = ?", id).First(ctx)
+}
+
+func (r *BookRepository) IncrementBorrowCount(ctx context.Context, tx *gorm.DB, id uint64) error {
+	err := tx.Model(&model.Book{}).Where("id = ?", id).
+    UpdateColumn("borrow_count", gorm.Expr("borrow_count + ?", 1)).Error
 	return err
 }

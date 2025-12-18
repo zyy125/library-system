@@ -12,14 +12,19 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"math"
+	"log"
 )
 
 type UserService struct {
 	userRepo *repository.UserRepository
+	overdueService *OverdueService
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
-	return &UserService{userRepo: repo}
+func NewUserService(repo *repository.UserRepository, overdueService *OverdueService) *UserService {
+	return &UserService{
+		userRepo:        repo,
+		overdueService: overdueService,
+	}
 }
 
 func (s *UserService) Register(ctx context.Context, req *request.UserRegisterRequest) (*response.UserRegisterResponse, error) {
@@ -204,6 +209,12 @@ func (s *UserService) Logout(ctx context.Context, userID uint64, tokenID string)
 }
 
 func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (*response.GetUserMsgResponse, error) {
+	err := s.overdueService.RefreshSingleUserOverdue(ctx, userID)
+	if err != nil {
+		// 记录日志，但不阻塞查询
+		log.Printf("检查逾期失败: %v", err)
+	}
+
 	user, err := s.userRepo.GetUserByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -244,7 +255,7 @@ func (s *UserService) UpdateUser(ctx context.Context, userID uint64, req *reques
 		updates["phone"] = *req.Phone
 	}
 
-	if err := s.userRepo.UpdateUserFields(ctx, userID, updates); err != nil {
+	if err := s.userRepo.UpdateUserFields(ctx, s.userRepo.DB(), userID, updates); err != nil {
 		return nil, err
 	}
 
@@ -277,7 +288,7 @@ func (s *UserService) ChangePwd(ctx context.Context, userID uint64, tokenID stri
 	update := make(map[string]interface{})
 	update["password"] = new
 
-	err = s.userRepo.UpdateUserFields(ctx, userID, update)
+	err = s.userRepo.UpdateUserFields(ctx,s.userRepo.DB(), userID, update)
 	if err != nil {
 		return err
 	}
@@ -423,7 +434,7 @@ func (s *UserService) UpdateUserByAdmin(ctx context.Context, id uint64, req *req
 		updates["status"] = *req.Status
 	}
 
-	if err := s.userRepo.UpdateUserFields(ctx, id, updates); err != nil {
+	if err := s.userRepo.UpdateUserFields(ctx, s.userRepo.DB(), id, updates); err != nil {
 		return nil, err
 	}
 

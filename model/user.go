@@ -12,9 +12,9 @@ type User struct {
 	Phone 			string 		`json:"phone" gorm:"varchar(11)"`
 	Role 			string 		`json:"role" gorm:"type:enum('admin','user');default:'user'"`
 	Status			string 		`json:"status" gorm:"type:enum('active','disabled');default:'active'"`
-	BorrowLimit 	int	   		`json:"borrow_limit" gorm:"defalut:5"`
-	BorrowingCount 	int			`json:"borrowing_count" gorm:"defalut:0"`
-    OverdueCount 	int			`json:"overdue_count" gorm:"defalut:0"`
+	BorrowLimit 	int	   		`json:"borrow_limit" gorm:"default:5"`
+	BorrowingCount 	int			`json:"borrowing_count" gorm:"default:0"`
+    OverdueCount 	int			`json:"overdue_count" gorm:"default:0"`
 	CreatedAt		time.Time	`json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   	time.Time	`json:"updated_at" gorm:"autoUpdateTime"`
 }

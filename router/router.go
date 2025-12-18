@@ -12,6 +12,7 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 
 	userCtl := ctl.UserController
 	bookCtl := ctl.BookController
+	borrowCtl := ctl.BorrowController
 
 	r.Use(middleware.ErrorHandler())
 	r.Use(gin.Recovery())
@@ -49,10 +50,23 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 					admin.POST("", bookCtl.CreateBook)
 					admin.POST("/batch", bookCtl.BatchCreateBook)
 					admin.PUT("/:id", bookCtl.UpdateBook)
+					admin.DELETE("/:id", bookCtl.DeleteBook)
 				}
 			}
 			books.GET("/:id", bookCtl.GetBookDetails)
 			books.GET("", bookCtl.GetBookList)
+		}
+
+		borrow := api.Group("/borrow")
+		{
+			auth := borrow.Group("", middleware.AuthMiddleware())
+			{
+				auth.POST("", borrowCtl.BorrowBook)
+				// admin := auth.Group("", middleware.RoleMiddleware())
+				// {
+					
+				// }
+			}
 		}
 	}
 
