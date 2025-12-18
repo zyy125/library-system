@@ -62,6 +62,7 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 			auth := borrow.Group("", middleware.AuthMiddleware())
 			{
 				auth.POST("", borrowCtl.BorrowBook)
+				auth.POST("/:borrow_id/return", borrowCtl.ReturnBook)
 				// admin := auth.Group("", middleware.RoleMiddleware())
 				// {
 					

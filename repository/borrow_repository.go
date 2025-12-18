@@ -24,11 +24,15 @@ func (r *BorrowRepository) CreateBorrowRecord(ctx context.Context, tx *gorm.DB, 
 	return gorm.G[model.BorrowRecord](tx).Create(ctx, borrow)
 }
 
-func (r *BorrowRepository) FindAllDueRecord(ctx context.Context, tx *gorm.DB, now time.Time) ([]model.BorrowRecord, error) {
+func (r *BorrowRepository) GetBorrowRecordByID(ctx context.Context, id uint64) (model.BorrowRecord, error) {
+	return gorm.G[model.BorrowRecord](r.db).Where("id = ?", id).First(ctx)
+}
+
+func (r *BorrowRepository) GetAllDueRecord(ctx context.Context, tx *gorm.DB, now time.Time) ([]model.BorrowRecord, error) {
 	return gorm.G[model.BorrowRecord](tx).Where("status = ? AND return_date IS NULL AND due_date < ?","borrowed", now).Find(ctx)
 }
 
-func (r *BorrowRepository) FindDueRecordByUserID(ctx context.Context, tx *gorm.DB, id uint64, now time.Time) ([]model.BorrowRecord, error) {
+func (r *BorrowRepository) GetDueRecordByUserID(ctx context.Context, tx *gorm.DB, id uint64, now time.Time) ([]model.BorrowRecord, error) {
 	return gorm.G[model.BorrowRecord](tx).Where("user_id = ? AND status = ? AND return_date IS NULL AND due_date < ?", id, "borrowed", now).Find(ctx)
 }
 

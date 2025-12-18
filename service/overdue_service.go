@@ -31,7 +31,7 @@ func (s *OverdueService) RefreshAllUsersOverdue(ctx context.Context) (int, error
 	updatedCount := 0
 
 	err := s.borrowRepo.DB().Transaction(func(tx *gorm.DB) error {
-		dueRecords, err := s.borrowRepo.FindAllDueRecord(ctx, tx, now)
+		dueRecords, err := s.borrowRepo.GetAllDueRecord(ctx, tx, now)
 		if err != nil {
 			return err
 		}
@@ -49,9 +49,9 @@ func (s *OverdueService) RefreshAllUsersOverdue(ctx context.Context) (int, error
 			fine := float64(overdueDays) * 1.0
 
 			updates := map[string]interface{}{
-					"status":  "overdue",
-					"fine":   fine,
-				}
+				"status": "overdue",
+				"fine":   fine,
+			}
 			if err := s.borrowRepo.UpdateFields(ctx, tx, record.ID, updates); err != nil {
 				return err
 			}
@@ -60,7 +60,7 @@ func (s *OverdueService) RefreshAllUsersOverdue(ctx context.Context) (int, error
 		}
 
 		for userID, count := range userOverdueMap {
-			if err := s.userRepo.IncrementOverDueCount(ctx, tx, userID, count); err != nil {
+			if err := s.userRepo.IncreaseOverDueCount(ctx, tx, userID, count); err != nil {
 				return err
 			}
 		}
@@ -75,10 +75,10 @@ func (s *OverdueService) RefreshSingleUserOverdue(ctx context.Context, userID ui
 	now := time.Now()
 
 	// 使用事务
-	err := s.borrowRepo.DB().Transaction(func(tx *gorm. DB) error {
+	err := s.borrowRepo.DB().Transaction(func(tx *gorm.DB) error {
 		// 1. 查找该用户所有逾期但状态未更新的记录
 		var overdueRecords []model.BorrowRecord
-		overdueRecords, err := s.borrowRepo.FindDueRecordByUserID(ctx, tx, userID, now)
+		overdueRecords, err := s.borrowRepo.GetDueRecordByUserID(ctx, tx, userID, now)
 		if err != nil {
 			return err
 		}
@@ -98,17 +98,17 @@ func (s *OverdueService) RefreshSingleUserOverdue(ctx context.Context, userID ui
 			fine := float64(overdueDays) * 1.0
 
 			updates := map[string]interface{}{
-					"status":  "overdue",
-					"fine":   fine,
-				}
+				"status": "overdue",
+				"fine":   fine,
+			}
 			if err := s.borrowRepo.UpdateFields(ctx, tx, record.ID, updates); err != nil {
 				return err
 			}
 		}
 
 		// 3. 更新用户逾期计数
-		if err := s.userRepo.IncrementOverDueCount(ctx, tx, userID, overdueCount); err != nil {
-			return err	
+		if err := s.userRepo.IncreaseOverDueCount(ctx, tx, userID, overdueCount); err != nil {
+			return err
 		}
 
 		return nil

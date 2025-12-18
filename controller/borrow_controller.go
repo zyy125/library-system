@@ -4,6 +4,7 @@ import (
 	"library-system/common"
 	"library-system/dto/request"
 	"library-system/service"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,4 +36,29 @@ func (ctl *BorrowController) BorrowBook(c *gin.Context) {
 	}
 
 	common.Success(c, 201, "借阅成功", data)
+}
+
+func (ctl *BorrowController) ReturnBook(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	idStr := c.Param("borrow_id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.Error(err)
+		return		
+	}
+
+	var req request.ReturnBookRequest
+	if err := common.ValidateStruct(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	data, err := ctl.borrowService.ReturnBook(ctx, id, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	common.Success(c, 200, "归还成功", data)
 }

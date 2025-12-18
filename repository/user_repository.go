@@ -89,16 +89,30 @@ func (r *UserRepository) GetUserByIDWithLock(ctx context.Context, tx *gorm.DB, i
 	return gorm.G[model.User](txLock).Where("id = ?", id).First(ctx)
 }
 
-func (r *UserRepository) IncrementBorrowingCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
+func (r *UserRepository) IncreaseBorrowingCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
 	err := tx.Model(&model.User{}).Where("id = ?", id).
     UpdateColumn("borrowing_count", gorm.Expr("borrowing_count + ?", 1)).Error
 
 	return err
 }
 
-func (r *UserRepository) IncrementOverDueCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
+func (r *UserRepository) DecreaseBorrowingCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
+	err := tx.Model(&model.User{}).Where("id = ?", id).
+    UpdateColumn("borrowing_count", gorm.Expr("borrowing_count - ?", 1)).Error
+
+	return err
+}
+
+func (r *UserRepository) IncreaseOverDueCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
 	err := tx.Model(&model.User{}).Where("id = ?", id).
     UpdateColumn("overdue_count", gorm.Expr("overdue_count + ?", count)).Error
+
+	return err
+}
+
+func (r *UserRepository) DecreaseOverDueCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
+	err := tx.Model(&model.User{}).Where("id = ?", id).
+    UpdateColumn("overdue_count", gorm.Expr("overdue_count - ?", count)).Error
 
 	return err
 }

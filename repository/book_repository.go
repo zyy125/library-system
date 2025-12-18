@@ -104,8 +104,14 @@ func (r *BookRepository) GetBookByIDWithLock(ctx context.Context, tx *gorm.DB, i
 	return gorm.G[model.Book](txLock).Where("id = ?", id).First(ctx)
 }
 
-func (r *BookRepository) IncrementBorrowCount(ctx context.Context, tx *gorm.DB, id uint64) error {
+func (r *BookRepository) IncreaseBorrowCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
 	err := tx.Model(&model.Book{}).Where("id = ?", id).
     UpdateColumn("borrow_count", gorm.Expr("borrow_count + ?", 1)).Error
+	return err
+}
+
+func (r *BookRepository) DecreaseBorrowCount(ctx context.Context, tx *gorm.DB, id uint64, count int) error {
+	err := tx.Model(&model.Book{}).Where("id = ?", id).
+    UpdateColumn("borrow_count", gorm.Expr("borrow_count - ?", 1)).Error
 	return err
 }
