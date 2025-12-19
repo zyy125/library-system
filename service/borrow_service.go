@@ -10,6 +10,7 @@ import (
 	"library-system/repository"
 	"log"
 	"time"
+	"math"
 
 	"gorm.io/gorm"
 )
@@ -211,4 +212,153 @@ func (s *BorrowService) ReturnBook(ctx context.Context, borrowID uint64, req *re
 	}
 
 	return resp, nil
+}
+
+func (s *BorrowService) RenewBorrow(ctx context.Context, userID uint64, borrowID uint64, req *request.RenewBorrowRequest) (*response.RenewBorrowResponse, error) {
+	// 刷新逾期记录
+	err := s.overdueService.RefreshSingleUserOverdue(ctx, userID)
+	if err != nil {
+		// 记录日志，但不阻塞查询
+		log.Printf("检查逾期失败: %v", err)
+	}
+
+	record, err := s.borrowRepo.GetBorrowRecordByIDWithBook(ctx, borrowID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, common.ErrBorrowNotFound
+		}
+		return nil, err
+	}
+
+	if record.RenewCount >= MaxRenewCount {
+		return nil, common.ErrRenewLimitReached
+	}
+
+	if record.Status == "overdue" {
+		return nil, common.ErrCannotRenewOverdue
+	}
+
+	if record.Status == "returned" {
+		return nil, &common.BizError{
+			Code:    400,
+			Message: "该图书已归还，无法续借",
+		}
+	}
+
+	var resp *response.RenewBorrowResponse
+
+	renewDays := DefaultBorrowDays
+	if req.RenewDays != nil {
+		renewDays = *req.RenewDays
+	}
+
+	newDueDate := record.DueDate.AddDate(0, 0, renewDays)
+	renewCount := record.RenewCount + 1
+	updates := map[string]interface{}{
+		"renew_count": renewCount,
+		"due_date":    newDueDate,
+	}
+	if err := s.borrowRepo.UpdateFields(ctx, s.borrowRepo.DB(), borrowID, updates); err != nil {
+		return nil, err
+	}
+
+	resp = &response.RenewBorrowResponse{
+		ID:              record.ID,
+		BookID:          record.BookID,
+		OriginalDueDate: record.DueDate,
+		NewDueDate:      newDueDate,
+		BookTitle:       record.Book.Title,
+		RenewCount:      renewCount,
+		MaxRenewCount:   MaxRenewCount,
+	}
+
+	return resp, nil
+}
+
+func DaysFromToday(t time.Time) int {
+	now := time.Now().In(t.Location())
+
+	today := time.Date(
+		now.Year(), now.Month(), now.Day(),
+		0, 0, 0, 0,
+		now.Location(),
+	)
+
+	target := time.Date(
+		t.Year(), t.Month(), t.Day(),
+		0, 0, 0, 0,
+		t.Location(),
+	)
+
+	return int(target.Sub(today).Hours() / 24)
+}
+
+func (s *BorrowService) GetBorrowRecordList(ctx context.Context, req *request.GetBorrowRecordListRequest) (*response.GetBorrowRecordListResponse, error) {
+	 if req.UserID != nil {
+        err := s.overdueService.RefreshSingleUserOverdue(ctx, *req.UserID)
+        if err != nil {
+            // 记录日志，但不阻塞查询
+            log.Printf("检查用户%d逾期失败: %v", *req.UserID, err)
+        }
+    }
+
+	if req.Page == 0 {
+		req.Page = 1
+	}
+
+	if req.Limit == 0 {
+		req.Limit = 10
+	}
+
+	records, total, err := s.borrowRepo.GetBorrowRecordList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]response.GetBorrowRecordItemResponse, 0, len(records))
+	for _, record := range records {
+		item := response.GetBorrowRecordItemResponse{
+			ID: record.ID,
+			Book: response.GetBorrowRecordListBookResponse{
+				ID:       record.Book.ID,
+				Title:    record.Book.Title,
+				Author:   record.Book.Author,
+				ISBN:     record.Book.ISBN,
+				CoverURL: record.Book.CoverURL,
+			},
+			User: response.GetBorrowRecordListUserResponse{
+				ID:       record.User.ID,
+				Username: record.User.Username,
+			},
+			BorrowDate: record.BorrowDate,
+			DueDate:    record.DueDate,
+			ReturnDate: record.ReturnDate,
+			Status:     record.Status,
+			RenewCount: record.RenewCount,
+			Fine: record.Fine,
+		}
+
+		if record.Status == "overdue" {
+			item.IsOverdue = true
+			item.OverdueDays = DaysFromToday(record.DueDate)
+		}
+		if record.Status == "borrowed" {
+			item.IsOverdue = false
+			item.DaysUntilDue = DaysFromToday(record.DueDate)
+		}
+
+		if record.RenewCount < MaxRenewCount && record.Status == "borrowed"{
+			item.CanRenew = true
+		}
+		items = append(items, item)
+	}
+
+	return &response.GetBorrowRecordListResponse{
+		Total:      total,
+		Page:       req.Page,
+		Limit:      req.Limit,
+		TotalPages: int(math.Ceil(float64(total) / float64(req.Limit))),
+		Records:    items,
+	}, nil
+
 }
