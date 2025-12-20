@@ -31,18 +31,24 @@ type BorrowService struct {
 	bookRepo       *repository.BookRepository
 	userRepo       *repository.UserRepository
 	overdueService *OverdueService
+	reservationService *ReservationService
+	reservationRepo *repository.ReservationRepository
 }
 
 func NewBorrowService(
 	borrowRepo *repository.BorrowRepository,
 	bookRepo *repository.BookRepository,
 	userRepo *repository.UserRepository,
+	reservationRepo *repository.ReservationRepository,
+	reservationService *ReservationService,
 	overdueService *OverdueService,
 ) *BorrowService {
 	return &BorrowService{
 		borrowRepo:     borrowRepo,
 		bookRepo:       bookRepo,
 		userRepo:       userRepo,
+		reservationRepo: reservationRepo,
+		reservationService: reservationService,
 		overdueService: overdueService,
 	}
 }
@@ -58,6 +64,24 @@ func (s *BorrowService) BorrowBook(ctx context.Context, userID uint64, req *requ
 	var resp *response.BorrowBookResponse
 
 	err = s.borrowRepo.DB().Transaction(func(tx *gorm.DB) error {
+		// 检查该用户是否有该书的有效预约
+        reservation, err := s.reservationRepo.GetUserReservationForBook(ctx, userID, req.BookId)
+        if err == nil && reservation.Status == model.ReservationStatusAvailable {
+            // 用户有有效预约，标记为已完成
+            now := time.Now()
+            updates := map[string]interface{}{
+                "status":       model.ReservationStatusFulfilled,
+                "fulfilled_at": now,
+            }
+            s.reservationRepo.UpdateReservationStatus(ctx, tx, reservation.ID, updates)
+        } else if errors.Is(err, gorm. ErrRecordNotFound) {
+            // 没有预约，检查是否有其他人预约
+            hasReservation, _ := s.reservationRepo.HasActiveReservation(ctx, req.BookId)
+            if hasReservation {
+                // 有人预约但不是当前用户
+                return common.ErrHasReservation
+            }
+        }
 		user, err := s.userRepo.GetUserByIDWithLock(ctx, tx, userID)
 		if err != nil {
 			return err
@@ -189,6 +213,12 @@ func (s *BorrowService) ReturnBook(ctx context.Context, borrowID uint64, req *re
 		if err := s.borrowRepo.UpdateFields(ctx, tx, borrowID, updates); err != nil {
 			return err
 		}
+
+		// 新增：还书后通知下一个预约者
+        if err := s.reservationService.NotifyNextReservation(ctx, tx, borrow.BookID); err != nil {
+            log.Printf("通知预约者失败: %v", err)
+            // 不中断还书流程
+        }
 
 		resp = &response.ReturnBookResponse{
 			ID:          borrowID,

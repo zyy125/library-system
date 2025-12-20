@@ -72,6 +72,14 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 				// }
 			}
 		}
+
+		reservations := api.Group("/reservations")
+        reservations.Use(middleware.AuthMiddleware())
+        {
+            reservations.POST("", ctl.ReservationController.CreateReservation)
+            reservations.DELETE("/:id", ctl.ReservationController.CancelReservation)
+            reservations.GET("/my", ctl.ReservationController.GetMyReservations)
+        }
 	}
 
 	return r

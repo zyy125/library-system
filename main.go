@@ -30,7 +30,8 @@ func main() {
 	<-quit
 
 	log.Println("服务器正在关闭...")
-	app.Scheduler.Stop()
+	app.Scheduler.OverdueScheduler.Stop()
+	app.Scheduler.ReservationScheduler.Stop()
 	database.CloseRedis()
 	log.Println("服务器已关闭")
 

@@ -59,6 +59,13 @@ var (
 	ErrReservationFailed  = NewBizError(30007, "预约失败，图书有库存", http.StatusBadRequest)
 )
 
+var (
+	ErrHasReservationed = NewBizError(40001, "您已预约过该图书", http.StatusBadRequest)
+	ErrReservationNotFound = NewBizError(40002, "预约记录不存在", http.StatusNotFound)
+	ErrReservationHasCanceled = NewBizError(40003, "该预约已完成或已取消", http.StatusBadRequest)
+	ErrHasReservation = NewBizError(40004, "该图书已被预约，请等待或预约排队", http.StatusBadRequest)
+)
+
 // ========== 通用错误 ==========
 
 var (

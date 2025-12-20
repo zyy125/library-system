@@ -32,3 +32,11 @@ type Reservation struct {
     User User `gorm:"foreignKey:UserID"`
 }
 
+// 预约状态说明
+const (
+    ReservationStatusWaiting   = "waiting"    // 等待中（排队）
+    ReservationStatusAvailable = "available"  // 可借阅（已通知）
+    ReservationStatusCancelled = "cancelled"  // 已取消
+    ReservationStatusExpired   = "expired"    // 已过期（48小时未借）
+    ReservationStatusFulfilled = "fulfilled"  // 已完成（已借书）
+)
