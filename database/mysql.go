@@ -17,6 +17,7 @@ func MigrateSQL(db *gorm.DB) error{
 		&model.Category{},
 		&model.Book{},
 		&model.BorrowRecord{},
+		&model.Reservation{},
 	)
 	if err != nil {
 		return fmt.Errorf("MySQL自动迁移失败: %v", err)

@@ -117,3 +117,17 @@ func (ctl *BorrowController) GetBorrowRecordList(c *gin.Context) {
 
 	common.Success(c, 200, "success", data)
 }
+
+func (ctl *BorrowController) GetCurrentRecord(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, _ := c.Get("user_id")
+
+	data, err := ctl.borrowService.GetCurrentRecord(ctx, userID.(uint64))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	common.Success(c, 200, "success", data)
+}

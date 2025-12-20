@@ -55,7 +55,7 @@ type GetBorrowRecordListBookResponse struct {
 type GetBorrowRecordItemResponse struct {
 	ID           uint64                          `json:"id"`
 	Book         GetBorrowRecordListBookResponse `json:"book"`
-	User         GetBorrowRecordListUserResponse `json:"user"`
+	User         *GetBorrowRecordListUserResponse `json:"user,omitempty"`
 	BorrowDate   time.Time                       `json:"borrow_date"`
 	DueDate      time.Time                       `json:"due_date"`
 	ReturnDate   *time.Time                      `json:"return_date"`
@@ -74,4 +74,12 @@ type GetBorrowRecordListResponse struct {
 	Limit      int                           `json:"limit"`
 	TotalPages int                           `json:"total_pages"`
 	Records    []GetBorrowRecordItemResponse `json:"records"`
+}
+
+type GetCurrentRecordResponse struct {
+	BorrowingCount int                           `json:"borrowing_count"`
+	BorrowLimit    int                           `json:"borrow_limit"`
+	OverdueCount   int                           `json:"overdue_count"`
+	TotalFine      float64                       `json:"total_fine"`
+	Records        []GetBorrowRecordItemResponse `json:"records"`
 }

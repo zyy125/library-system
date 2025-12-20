@@ -9,8 +9,8 @@ import (
 	"library-system/model"
 	"library-system/repository"
 	"log"
-	"time"
 	"math"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -294,13 +294,13 @@ func DaysFromToday(t time.Time) int {
 }
 
 func (s *BorrowService) GetBorrowRecordList(ctx context.Context, req *request.GetBorrowRecordListRequest) (*response.GetBorrowRecordListResponse, error) {
-	 if req.UserID != nil {
-        err := s.overdueService.RefreshSingleUserOverdue(ctx, *req.UserID)
-        if err != nil {
-            // 记录日志，但不阻塞查询
-            log.Printf("检查用户%d逾期失败: %v", *req.UserID, err)
-        }
-    }
+	if req.UserID != nil {
+		err := s.overdueService.RefreshSingleUserOverdue(ctx, *req.UserID)
+		if err != nil {
+			// 记录日志，但不阻塞查询
+			log.Printf("检查用户%d逾期失败: %v", *req.UserID, err)
+		}
+	}
 
 	if req.Page == 0 {
 		req.Page = 1
@@ -326,7 +326,7 @@ func (s *BorrowService) GetBorrowRecordList(ctx context.Context, req *request.Ge
 				ISBN:     record.Book.ISBN,
 				CoverURL: record.Book.CoverURL,
 			},
-			User: response.GetBorrowRecordListUserResponse{
+			User: &response.GetBorrowRecordListUserResponse{
 				ID:       record.User.ID,
 				Username: record.User.Username,
 			},
@@ -335,7 +335,7 @@ func (s *BorrowService) GetBorrowRecordList(ctx context.Context, req *request.Ge
 			ReturnDate: record.ReturnDate,
 			Status:     record.Status,
 			RenewCount: record.RenewCount,
-			Fine: record.Fine,
+			Fine:       record.Fine,
 		}
 
 		if record.Status == "overdue" {
@@ -347,7 +347,7 @@ func (s *BorrowService) GetBorrowRecordList(ctx context.Context, req *request.Ge
 			item.DaysUntilDue = DaysFromToday(record.DueDate)
 		}
 
-		if record.RenewCount < MaxRenewCount && record.Status == "borrowed"{
+		if record.RenewCount < MaxRenewCount && record.Status == "borrowed" {
 			item.CanRenew = true
 		}
 		items = append(items, item)
@@ -360,5 +360,62 @@ func (s *BorrowService) GetBorrowRecordList(ctx context.Context, req *request.Ge
 		TotalPages: int(math.Ceil(float64(total) / float64(req.Limit))),
 		Records:    items,
 	}, nil
+}
 
+func (s *BorrowService) GetCurrentRecord(ctx context.Context, userID uint64) (*response.GetCurrentRecordResponse, error) {
+	records, err := s.borrowRepo.GetRecordByUserIDWithPreload(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, common.ErrBorrowNotFound
+	}
+
+	var items []response.GetBorrowRecordItemResponse
+	var totalFine float64 = 0
+
+	for _, record := range records {
+		totalFine += record.Fine
+		item := response.GetBorrowRecordItemResponse{
+			ID: record.ID,
+			User: nil,
+			Book: response.GetBorrowRecordListBookResponse{
+				ID:       record.Book.ID,
+				Title:    record.Book.Title,
+				Author:   record.Book.Author,
+				ISBN:     record.Book.ISBN,
+				CoverURL: record.Book.CoverURL,
+			},
+			BorrowDate: record.BorrowDate,
+			DueDate:    record.DueDate,
+			ReturnDate: record.ReturnDate,
+			Status:     record.Status,
+			RenewCount: record.RenewCount,
+			Fine:       record.Fine,
+		}
+
+		if record.Status == "overdue" {
+			item.IsOverdue = true
+			item.OverdueDays = DaysFromToday(record.DueDate)
+		}
+		if record.Status == "borrowed" {
+			item.IsOverdue = false
+			item.DaysUntilDue = DaysFromToday(record.DueDate)
+		}
+
+		if record.RenewCount < MaxRenewCount && record.Status == "borrowed" {
+			item.CanRenew = true
+		}
+		items = append(items, item)
+	}
+
+	user := records[0].User
+
+	return &response.GetCurrentRecordResponse{
+		BorrowingCount: user.BorrowingCount,
+		BorrowLimit:user.BorrowLimit,
+		OverdueCount: user.OverdueCount,
+		TotalFine: totalFine,
+		Records: items,
+	}, nil
 }

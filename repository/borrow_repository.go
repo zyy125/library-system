@@ -103,3 +103,9 @@ func (r *BorrowRepository) GetBorrowRecordList(ctx context.Context, req *request
 
 	return records, total, nil
 }
+
+func (r *BorrowRepository) GetRecordByUserIDWithPreload(ctx context.Context, userID uint64) ([]model.BorrowRecord, error){
+	return gorm.G[model.BorrowRecord](r.db).Where("user_id = ?", userID).
+	Preload("Book", func(db gorm.PreloadBuilder) error {return nil}).
+	Preload("User", func(db gorm.PreloadBuilder) error {return nil}).Find(ctx)
+}

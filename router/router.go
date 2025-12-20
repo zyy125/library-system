@@ -65,6 +65,7 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 				auth.POST("/:borrow_id/return", borrowCtl.ReturnBook)
 				auth.POST("/:borrow_id/renew", borrowCtl.RenewBorrow)
 				auth.GET("", borrowCtl.GetBorrowRecordList)
+				auth.GET("/current", borrowCtl.GetCurrentRecord)
 				// admin := auth.Group("", middleware.RoleMiddleware())
 				// {
 					
