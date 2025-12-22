@@ -7,6 +7,7 @@ export const logout = () => request.post('/api/users/logout');
 export const getUserInfo = () => request.get('/api/users/me');
 export const updateUserInfo = (data) => request.put('/api/users/me', data);
 export const changePassword = (data) => request.post('/api/users/change-password', data);
+
 // 管理员用户接口
 export const getUserList = (params) => request.get('/api/users', { params });
 export const createUser = (data) => request.post('/api/users', data);
@@ -35,8 +36,14 @@ export const getMyReservations = () => request.get('/api/reservations/my');
 
 // --- 分类模块 ---
 export const getCategories = (params) => request.get('/api/categories', { params });
+export const getCategoryDetail = (id) => request.get(`/api/categories/${id}`);
 export const addCategory = (data) => request.post('/api/categories', data);
+export const updateCategory = (id, data) => request.put(`/api/categories/${id}`, data);
 export const deleteCategory = (id) => request.delete(`/api/categories/${id}`);
 
 // --- 统计模块 ---
 export const getStatsOverview = () => request.get('/api/stats/overview');
+export const getBorrowStats = (params) => request.get('/api/stats/borrow', { params });
+export const getUserStats = (userId) => request.get(`/api/stats/user/${userId}`);
+export const getPopularBooksStats = (params) => request.get('/api/stats/popular-books', { params });
+export const getCategoryStats = () => request.get('/api/stats/categories');

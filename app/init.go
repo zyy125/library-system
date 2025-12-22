@@ -32,21 +32,26 @@ func InitApp() (*App, error) {
 	borrowRepo := repository.NewBorrowRepository(db)
 	cateRepo := repository.NewCategoryRepository(db)
 	reservationRepo := repository.NewReservationRepository(db)
+	statsRepo := repository.NewStatsRepository(db)
 
 	overdueService := service.NewOverdueService(borrowRepo, userRepo)
 	userService := service.NewUserService(userRepo, overdueService)
 	bookService := service.NewBookService(bookRepo, cateRepo)
 	reservationService := service.NewReservationService(reservationRepo, bookRepo, userRepo)
 	borrowService := service.NewBorrowService(borrowRepo, bookRepo, userRepo, reservationRepo, reservationService, overdueService)
-	
+	cateService := service.NewCategoryService(cateRepo)
+	statsService := service. NewStatsService(statsRepo, userRepo)
+
 	overdueScheduler := scheduler.NewOverdueScheduler(overdueService)
 	reservationScheduler := scheduler.NewReservationScheduler(reservationService)
 	userCtl := controller.NewUserController(userService)
 	bookCtl := controller.NewBookController(bookService)
 	borrowCtl := controller.NewBorrowController(borrowService)
 	reservationCtl := controller.NewReservationController(reservationService)
+	cateCtl := controller.NewCategoryController(cateService)
+	statsCtl := controller.NewStatsController(statsService)
 
-	ctl := controller.NewController(userCtl, bookCtl, borrowCtl, reservationCtl)
+	ctl := controller.NewController(userCtl, bookCtl, borrowCtl, reservationCtl, cateCtl, statsCtl)
 
 
 	scheduler := &scheduler.Scheduler{OverdueScheduler: overdueScheduler, ReservationScheduler: reservationScheduler}

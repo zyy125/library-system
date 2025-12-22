@@ -24,7 +24,7 @@ type UserLoginResponse struct {
 	RefreshToken 	string 			`json:"refresh_token"`
 	TokenType 		string 			`json:"token_type"`
 	ExpiresIn 		int				`json:"expires_in"`
-	User 			UserResponse   	`josn:"user"`
+	User 			UserResponse   	`json:"user"`
 }
 
 type UserTokenRefreshResponse struct {
@@ -32,7 +32,7 @@ type UserTokenRefreshResponse struct {
 	RefreshToken 	string 			`json:"refresh_token"`
 	TokenType 		string 			`json:"token_type"`
 	ExpiresIn 		int				`json:"expires_in"`
-	User 			UserResponse   	`josn:"user"`
+	User 			UserResponse   	`json:"user"`
 }
 
 type GetUserMsgResponse struct {

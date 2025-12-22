@@ -405,6 +405,9 @@ func (s *BorrowService) GetCurrentRecord(ctx context.Context, userID uint64) (*r
 	var totalFine float64 = 0
 
 	for _, record := range records {
+		if record.Status == "returned" {
+			continue
+		}
 		totalFine += record.Fine
 		item := response.GetBorrowRecordItemResponse{
 			ID: record.ID,
