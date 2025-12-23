@@ -18,9 +18,11 @@ export const deleteUser = (id) => request.delete(`/api/users/${id}`);
 export const getBooks = (params) => request.get('/api/books', { params });
 export const getBookDetail = (id) => request.get(`/api/books/${id}`);
 export const addBook = (data) => request.post('/api/books', data);
+export const batchImportBooks = (data) => request.post('/api/books/batch', data);
 export const updateBook = (id, data) => request.put(`/api/books/${id}`, data);
 export const deleteBook = (id) => request.delete(`/api/books/${id}`);
-export const getPopularBooks = (params) => request.get('/api/books/popular', { params });
+// 热门图书已移至统计模块
+export const getPopularBooks = (params) => request.get('/api/stats/popular-books', { params });
 
 // --- 借阅模块 ---
 export const borrowBook = (data) => request.post('/api/borrow', data);

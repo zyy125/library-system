@@ -76,7 +76,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { getCategories, addCategory, deleteCategory } from '../api';
+import { getCategories, addCategory, updateCategory, deleteCategory } from '../api';
 import { formatDate } from '../utils/format';
 import { $message } from '../utils/toast';
 
@@ -125,8 +125,7 @@ const submitForm = async () => {
       await addCategory(form);
       $message.success('分类创建成功');
     } else {
-      // 注意：API文档中有 PUT /api/categories/: id，这里假设已有对应方法
-      // await updateCategory(currentId.value, form);
+      await updateCategory(currentId.value, form);
       $message.success('分类更新成功');
     }
     showModal.value = false;

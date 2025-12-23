@@ -225,7 +225,7 @@ func (s *UserService) GetUserMsg(ctx context.Context, userID uint64) (*response.
 		Username:       user.Username,
 		Email:          user.Email,
 		Phone:          user.Phone,
-		Role:           user.Phone,
+		Role:           user.Role,
 		Status:         user.Status,
 		BorrowLimit:    user.BorrowLimit,
 		BorrowingCount: user.BorrowingCount,

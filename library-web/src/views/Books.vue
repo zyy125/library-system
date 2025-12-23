@@ -25,8 +25,11 @@
     </div>
 
     <!-- 图书表格 -->
-    <div class="card" style="padding: 0; overflow:  hidden;">
-      <div v-if="loading" class="loading-state">加载中...</div>
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>加载中...</p>
+      </div>
       
       <table v-else-if="books.length > 0">
         <thead>
@@ -42,45 +45,95 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="book in books" :key="book.id">
-            <td>
-              <img :src="book.cover_url || defaultCover" class="book-cover" @error="handleImgError">
+          <tr v-for="book in books" :key="book.id" class="book-row">
+            <!-- 封面列：点击放大 -->
+            <td 
+              class="cover-cell" 
+              @click="openCoverModal(book)"
+              title="点击查看图书封面"
+            >
+              <div class="cover-wrapper">
+                <img 
+                  :src="'http://localhost:8080' + (book.cover_url || defaultCover)" 
+                  class="book-cover" 
+                  @error="handleImgError"
+                />
+                <div class="cover-hint">🔍</div>
+              </div>
             </td>
-            <td>
+            
+            <!-- 书名列：点击跳转详情 -->
+            <td 
+              class="clickable-cell" 
+              @click="viewDetails(book.id)"
+              title="查看图书详情"
+            >
               <div class="book-title">{{ book.title }}</div>
               <div class="text-sm text-secondary">{{ book.isbn }}</div>
             </td>
-            <td>
+            
+            <!-- 作者列：点击跳转详情 -->
+            <td 
+              class="clickable-cell" 
+              @click="viewDetails(book.id)"
+              title="查看图书详情"
+            >
               <div>{{ book.author }}</div>
               <div class="text-sm text-secondary">{{ book.publisher }}</div>
             </td>
-            <td>
+            
+            <!-- 分类列：点击跳转详情 -->
+            <td 
+              class="clickable-cell" 
+              @click="viewDetails(book.id)"
+              title="查看图书详情"
+            >
               <span class="badge badge-secondary">{{ book.category_name || '未分类' }}</span>
             </td>
-            <td>
+            
+            <!-- 价格列：点击跳转详情 -->
+            <td 
+              class="clickable-cell" 
+              @click="viewDetails(book.id)"
+              title="查看图书详情"
+            >
               <span v-if="book.price">¥{{ book.price.toFixed(2) }}</span>
               <span v-else class="text-secondary">-</span>
             </td>
-            <td>
+            
+            <!-- 库存列：点击跳转详情 -->
+            <td 
+              class="clickable-cell" 
+              @click="viewDetails(book.id)"
+              title="查看图书详情"
+            >
               <span v-if="book.available > 0" class="badge badge-success">
                 可借 {{ book.available }} / {{ book.stock }}
               </span>
               <span v-else class="badge badge-danger">暂时缺货</span>
             </td>
-            <td>
+            
+            <!-- 借阅量列：点击跳转详情 -->
+            <td 
+              class="clickable-cell" 
+              @click="viewDetails(book.id)"
+              title="查看图书详情"
+            >
               <span class="text-primary">{{ book.borrow_count || 0 }}</span> 次
             </td>
-            <td class="text-right">
+            
+            <!-- 操作列：不触发跳转 -->
+            <td class="text-right action-cell">
               <div class="flex justify-end gap-2">
-                <button class="btn btn-sm" v-if="book.available > 0" @click="handleBorrow(book)">
+                <button class="btn btn-sm" v-if="book.available > 0" @click.stop="handleBorrow(book)">
                   借阅
                 </button>
-                <button class="btn btn-sm btn-secondary" v-else @click="handleReserve(book.id)">
+                <button class="btn btn-sm btn-secondary" v-else @click.stop="handleReserve(book.id)">
                   预约
                 </button>
                 <template v-if="isAdmin">
-                  <button class="btn btn-sm btn-secondary" @click="openEditModal(book)">编辑</button>
-                  <button class="btn btn-sm btn-danger" @click="handleDelete(book)">删除</button>
+                  <button class="btn btn-sm btn-secondary" @click.stop="openEditModal(book)">编辑</button>
+                  <button class="btn btn-sm btn-danger" @click.stop="handleDelete(book)">删除</button>
                 </template>
               </div>
             </td>
@@ -101,6 +154,23 @@
         <div class="page-controls">
           <button class="btn btn-secondary btn-sm" :disabled="params.page <= 1" @click="changePage(-1)">上一页</button>
           <button class="btn btn-secondary btn-sm" :disabled="params.page >= totalPages" @click="changePage(1)">下一页</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 封面放大模态框 -->
+    <div v-if="showCoverModal" class="modal-overlay" @click="showCoverModal = false">
+      <div class="cover-modal" @click.stop>
+        <button class="close-btn" @click="showCoverModal = false">✕</button>
+        <img 
+          :src="'http://localhost:8080' + (currentBook?.cover_url || defaultCover)" 
+          :alt="currentBook?.title"
+          class="modal-cover"
+          @error="handleImgError"
+        />
+        <div class="modal-info">
+          <h3>{{ currentBook?.title }}</h3>
+          <p>👤 {{ currentBook?.author }}</p>
         </div>
       </div>
     </div>
@@ -169,7 +239,7 @@
         <div class="flex justify-end gap-2 mt-4">
           <button class="btn btn-secondary" @click="showModal = false">取消</button>
           <button class="btn" :disabled="submitting" @click="submitBook">
-            {{ submitting ?  '提交中...' :  '确认提交' }}
+            {{ submitting ? '提交中...' : '确认提交' }}
           </button>
         </div>
       </div>
@@ -179,10 +249,12 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { getBooks, borrowBook, reserveBook, deleteBook, addBook, updateBook, getCategories } from '../api';
 import { getUser } from '../utils/auth';
 import { $message } from '../utils/toast';
 
+const router = useRouter();
 const defaultCover = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="200" viewBox="0 0 150 200"%3E%3Crect fill="%23f3f4f6" width="150" height="200"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="14" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3E暂无封面%3C/text%3E%3C/svg%3E';
 
 const books = ref([]);
@@ -205,6 +277,9 @@ const showModal = ref(false);
 const modalType = ref('add');
 const editingId = ref(null);
 
+const showCoverModal = ref(false);
+const currentBook = ref(null);
+
 const bookForm = reactive({
   title: '', author: '', isbn: '', category_id: 1, publisher: '',
   publish_date: '', price: null, stock: 10, description: '', cover_url: ''
@@ -212,6 +287,17 @@ const bookForm = reactive({
 
 const user = getUser();
 const isAdmin = computed(() => user?.role === 'admin');
+
+// 打开封面放大模态框
+const openCoverModal = (book) => {
+  currentBook.value = book;
+  showCoverModal.value = true;
+};
+
+// 查看图书详情
+const viewDetails = (bookId) => {
+  router.push(`/books/${bookId}`);
+};
 
 // 加载分类列表
 const loadCategories = async () => {
@@ -251,7 +337,7 @@ const search = () => {
 };
 
 const resetFilters = () => {
-  Object.assign(params, { page: 1, title: '', author: '', category_id: null, available_only:  null });
+  Object.assign(params, { page: 1, title: '', author: '', category_id: null, available_only: null });
   fetchBooks();
 };
 
@@ -267,7 +353,7 @@ const handleImgError = (e) => {
 const openAddModal = () => {
   modalType.value = 'add';
   Object.assign(bookForm, {
-    title: '', author: '', isbn:  '', category_id:  categories.value[0]?.id || 1,
+    title: '', author: '', isbn: '', category_id: categories.value[0]?.id || 1,
     publisher: '', publish_date: '', price: null, stock: 10, description: '', cover_url: ''
   });
   showModal.value = true;
@@ -283,7 +369,7 @@ const openEditModal = (book) => {
     category_id: book.category_id,
     publisher: book.publisher,
     publish_date: book.publish_date || '',
-    price:  book.price,
+    price: book.price,
     stock: book.stock,
     description: book.description || '',
     cover_url: book.cover_url || ''
@@ -302,10 +388,10 @@ const submitBook = async () => {
   try {
     const data = { ...bookForm };
     // 清理空值
-    if (! data.price) delete data.price;
-    if (! data.publish_date) delete data.publish_date;
+    if (!data.price) delete data.price;
+    if (!data.publish_date) delete data.publish_date;
     if (!data.description) delete data.description;
-    if (! data.cover_url) delete data.cover_url;
+    if (!data.cover_url) delete data.cover_url;
 
     if (modalType.value === 'add') {
       await addBook(data);
@@ -360,26 +446,129 @@ onMounted(() => {
 
 <style scoped>
 .toolbar { 
-  display:  flex; 
+  display: flex; 
   justify-content: space-between; 
-  align-items:  center;
+  align-items: center;
   padding: 16px;
   flex-wrap: wrap;
   gap: 12px;
 }
 .toolbar .input { width: 160px; }
 
-.book-title { font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.text-sm { font-size: 0.8rem; }
-.text-secondary { color: var(--text-secondary); }
-.text-primary { color: var(--primary); font-weight: 600; }
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
 
-.loading-state, .empty-state { 
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border-light);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.book-row {
+  transition: var(--transition);
+}
+
+/* 封面单元格样式 */
+.cover-cell {
+  cursor: pointer;
+  padding: 12px !important;
+}
+
+.cover-wrapper {
+  position: relative;
+  width: 48px;
+  height: 64px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.book-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: var(--transition);
+}
+
+.cover-hint {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.cover-cell:hover .cover-hint {
+  opacity: 1;
+}
+
+.cover-cell:hover .book-cover {
+  transform: scale(1.1);
+}
+
+/* 可点击单元格样式 */
+.clickable-cell {
+  cursor: pointer;
+  position: relative;
+  transition: var(--transition);
+}
+
+.clickable-cell:hover {
+  background: var(--border-light);
+}
+
+/* 操作单元格不显示提示 */
+.action-cell {
+  cursor: default;
+}
+
+.book-title { 
+  font-weight: 600; 
+  max-width: 200px; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap; 
+}
+
+.text-sm { 
+  font-size: 0.8rem; 
+}
+
+.text-secondary { 
+  color: var(--text-secondary); 
+}
+
+.text-primary { 
+  color: var(--primary); 
+  font-weight: 600; 
+}
+
+.empty-state { 
   padding: 60px; 
   text-align: center; 
   color: var(--text-secondary); 
 }
-.empty-state p { margin: 8px 0; }
+
+.empty-state p { 
+  margin: 8px 0; 
+}
 
 .pagination { 
   padding: 16px; 
@@ -388,10 +577,82 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
 }
-.page-info { color: var(--text-secondary); font-size: 0.875rem; }
-.page-controls { display: flex; gap:  8px; }
 
-.form-row { display:  grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.required { color: var(--danger); }
-.flex-wrap { flex-wrap: wrap; }
+.page-info { 
+  color: var(--text-secondary); 
+  font-size: 0.875rem; 
+}
+
+.page-controls { 
+  display: flex; 
+  gap: 8px; 
+}
+
+/* 封面放大模态框 */
+.cover-modal {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 600px;
+  width: 90%;
+  position: relative;
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--text-main);
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.2);
+  transform: scale(1.1);
+}
+
+.modal-cover {
+  width: 100%;
+  max-height: 600px;
+  object-fit: contain;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+
+.modal-info h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.modal-info p {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.form-row { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 16px; 
+}
+
+.required { 
+  color: var(--danger); 
+}
+
+.flex-wrap { 
+  flex-wrap: wrap; 
+}
 </style>

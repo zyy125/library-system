@@ -10,6 +10,8 @@ import (
 func SetupRouter(ctl *controller.Controller) *gin.Engine {
 	r := gin.Default()
 
+	r.Static("/static", "./static")
+
 	userCtl := ctl.UserController
 	bookCtl := ctl.BookController
 	borrowCtl := ctl.BorrowController
@@ -18,6 +20,7 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 
 	r.Use(middleware.ErrorHandler())
 	r.Use(gin.Recovery())
+
 	api := r.Group("/api")
 	{
 		users := api.Group("/users")
@@ -45,6 +48,10 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 
 		books := api.Group("/books")
 		{
+			// 具体路径必须在动态路由 :id 之前定义
+			books.GET("", bookCtl.GetBookList)
+			books.GET("/:id", bookCtl.GetBookDetails)
+
 			auth := books.Group("", middleware.AuthMiddleware())
 			{
 				admin := auth.Group("", middleware.RoleMiddleware())
@@ -55,8 +62,6 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 					admin.DELETE("/:id", bookCtl.DeleteBook)
 				}
 			}
-			books.GET("/:id", bookCtl.GetBookDetails)
-			books.GET("", bookCtl.GetBookList)
 		}
 
 		borrow := api.Group("/borrow")
@@ -72,17 +77,17 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 		}
 
 		reservations := api.Group("/reservations")
-        reservations.Use(middleware.AuthMiddleware())
-        {
-            reservations.POST("", ctl.ReservationController.CreateReservation)
-            reservations.DELETE("/:id", ctl.ReservationController.CancelReservation)
-            reservations.GET("/my", ctl.ReservationController.GetMyReservations)
-        }
+		reservations.Use(middleware.AuthMiddleware())
+		{
+			reservations.POST("", ctl.ReservationController.CreateReservation)
+			reservations.DELETE("/:id", ctl.ReservationController.CancelReservation)
+			reservations.GET("/my", ctl.ReservationController.GetMyReservations)
+		}
 
-		categories := api. Group("/categories")
+		categories := api.Group("/categories")
 		{
 			// 公开接口（不需要认证）
-			categories.GET("", categoryCtl. GetCategoryList)
+			categories.GET("", categoryCtl.GetCategoryList)
 			categories.GET("/:id", categoryCtl.GetCategoryDetail)
 
 			// 管理员接口
@@ -90,7 +95,7 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 			{
 				admin := auth.Group("", middleware.RoleMiddleware())
 				{
-					admin. POST("", categoryCtl.CreateCategory)
+					admin.POST("", categoryCtl.CreateCategory)
 					admin.PUT("/:id", categoryCtl.UpdateCategory)
 					admin.DELETE("/:id", categoryCtl.DeleteCategory)
 				}
@@ -99,24 +104,24 @@ func SetupRouter(ctl *controller.Controller) *gin.Engine {
 	}
 
 	stats := api.Group("/stats")
+	{
+		// 公开接口
+		stats.GET("/popular-books", statsCtl.GetPopularBooks)
+
+		// 需要认证的接口
+		auth := stats.Group("", middleware.AuthMiddleware())
 		{
-			// 公开接口
-			stats.GET("/popular-books", statsCtl.GetPopularBooks)
+			auth.GET("/user/:user_id", statsCtl.GetUserStats)
 
-			// 需要认证的接口
-			auth := stats.Group("", middleware. AuthMiddleware())
+			// 管理员接口
+			admin := auth.Group("", middleware.RoleMiddleware())
 			{
-				auth.GET("/user/:user_id", statsCtl.GetUserStats)
-
-				// 管理员接口
-				admin := auth.Group("", middleware.RoleMiddleware())
-				{
-					admin.GET("/overview", statsCtl.GetOverview)
-					admin.GET("/borrow", statsCtl.GetBorrowStats)
-					admin.GET("/categories", statsCtl.GetCategoryStats)
-				}
+				admin.GET("/overview", statsCtl.GetOverview)
+				admin.GET("/borrow", statsCtl.GetBorrowStats)
+				admin.GET("/categories", statsCtl.GetCategoryStats)
 			}
 		}
+	}
 
 	return r
 }

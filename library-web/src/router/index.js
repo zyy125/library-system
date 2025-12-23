@@ -1,32 +1,56 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { getToken, getUser } from '../utils/auth';
 import Login from '../views/Login.vue';
+import Register from '../views/Register.vue';
 import Layout from '../views/Layout.vue';
 import Dashboard from '../views/Dashboard.vue';
 import Books from '../views/Books.vue';
+import BookDetail from '../views/BookDetail.vue';
+import PopularBooks from '../views/PopularBooks.vue';
 import Borrowing from '../views/Borrowing.vue';
+import BorrowHistory from '../views/BorrowHistory.vue';
+import Reservations from '../views/Reservations.vue';
 import Profile from '../views/Profile.vue';
 import Users from '../views/Users.vue';
 import Categories from '../views/Categories.vue';
+import AdminBooks from '../views/AdminBooks.vue';
+import AdminBorrows from '../views/AdminBorrows.vue';
 
 const routes = [
   { path: '/login', component: Login, meta: { guest: true } },
+  { path: '/register', component: Register, meta: { guest: true } },
   {
     path: '/',
-    component:  Layout,
+    component: Layout,
     children: [
-      { path: '', redirect: '/books' },
-      { path: 'books', component: Books },
-      { path: 'borrowing', component: Borrowing },
-      { path: 'profile', component: Profile },
+      { 
+        path: '', 
+        redirect: to => {
+          const user = getUser();
+          return user?.role === 'admin' ? '/dashboard' : '/books';
+        }
+      },
+      // 普通用户路由
+      { path: 'books', component: Books, name: 'Books' },
+      { path: 'books/:id', component: BookDetail, name: 'BookDetail' },
+      { path: 'popular', component: PopularBooks, name: 'PopularBooks' },
+      { path: 'borrowing', component: Borrowing, name: 'Borrowing' },
+      { path: 'borrow-history', component: BorrowHistory, name: 'BorrowHistory' },
+      { path: 'reservations', component: Reservations, name: 'Reservations' },
+      { path: 'profile', component: Profile, name: 'Profile' },
       // 管理员专属路由
-      { path: 'dashboard', component: Dashboard, meta: { admin:  true } },
-      { path: 'users', component: Users, meta: { admin: true } },
-      { path: 'categories', component:  Categories, meta: { admin: true } }
+      { path: 'dashboard', component: Dashboard, meta: { admin: true }, name: 'Dashboard' },
+      { path: 'admin/users', component: Users, meta: { admin: true }, name: 'Users' },
+      { path: 'admin/books', component: AdminBooks, meta: { admin: true }, name: 'AdminBooks' },
+      { path: 'admin/borrows', component: AdminBorrows, meta: { admin: true }, name: 'AdminBorrows' },
+      { path: 'admin/categories', component: Categories, meta: { admin: true }, name: 'Categories' }
     ]
   },
   // 404 重定向
-  { path: '/:pathMatch(.*)*', redirect: '/books' }
+  { path: '/:pathMatch(.*)*', redirect: to => {
+    const user = getUser();
+    return user?.role === 'admin' ? '/dashboard' : '/books';
+  }}
 ];
 
 const router = createRouter({
@@ -44,9 +68,10 @@ router.beforeEach((to, from, next) => {
     return;
   }
   
-  // 已登录访问登录页，跳转首页
+  // 已登录访问登录页，根据角色跳转
   if (hasToken && to.meta.guest) {
-    next('/');
+    const user = getUser();
+    next(user?.role === 'admin' ? '/dashboard' : '/books');
     return;
   }
   

@@ -30,17 +30,26 @@ func (r *StatsRepository) CountTotalBooks(ctx context.Context) (int64, error) {
 
 func (r *StatsRepository) CountTotalUsers(ctx context.Context) (int64, error) {
 	var count int64
-	err := r. db.WithContext(ctx).Model(&model.User{}).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&model.User{}).Count(&count).Error
 	return count, err
 }
 
 func (r *StatsRepository) CountTotalCategories(ctx context.Context) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Category{}).Count(&count).Error
-	return count, err
+	// 检查categories表是否存在
+	var tableExists bool
+	err := r.db.Raw("SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'categories'").Scan(&tableExists).Error
+	if err != nil || !tableExists {
+		return 0, nil
+	}
+	err = r.db.WithContext(ctx).Model(&model.Category{}).Count(&count).Error
+	if err != nil {
+		return 0, nil
+	}
+	return count, nil
 }
 
-func (r *StatsRepository) CountBorrowedBooks(ctx context. Context) (int64, error) {
+func (r *StatsRepository) CountBorrowedBooks(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.BorrowRecord{}).
 		Where("status IN ? ", []string{"borrowed", "overdue"}).
@@ -50,7 +59,7 @@ func (r *StatsRepository) CountBorrowedBooks(ctx context. Context) (int64, error
 
 func (r *StatsRepository) CountAvailableBooks(ctx context.Context) (int64, error) {
 	var total int64
-	err := r. db.WithContext(ctx).Model(&model.Book{}).
+	err := r.db.WithContext(ctx).Model(&model.Book{}).
 		Select("COALESCE(SUM(stock - borrow_count), 0)").
 		Scan(&total).Error
 	return total, err
@@ -72,15 +81,24 @@ func (r *StatsRepository) CountTotalBorrowRecords(ctx context.Context) (int64, e
 
 func (r *StatsRepository) CountActiveReservations(ctx context.Context) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Reservation{}).
+	// 检查reservations表是否存在
+	var tableExists bool
+	err := r.db.Raw("SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'reservations'").Scan(&tableExists).Error
+	if err != nil || !tableExists {
+		return 0, nil
+	}
+	err = r.db.WithContext(ctx).Model(&model.Reservation{}).
 		Where("status IN ?", []string{"waiting", "available"}).
 		Count(&count).Error
-	return count, err
+	if err != nil {
+		return 0, nil
+	}
+	return count, nil
 }
 
 func (r *StatsRepository) CountActiveUsers30d(ctx context.Context) (int64, error) {
 	var count int64
-	thirtyDaysAgo := time. Now().AddDate(0, 0, -30)
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 	err := r.db.WithContext(ctx).Model(&model.BorrowRecord{}).
 		Where("borrow_date >= ?", thirtyDaysAgo).
 		Distinct("user_id").
@@ -126,7 +144,7 @@ func (r *StatsRepository) GetBorrowStatsByDateRange(ctx context.Context, startDa
 		Date  string
 		Count int64
 	}
-	err = r.db. WithContext(ctx).Model(&model.BorrowRecord{}).
+	err = r.db.WithContext(ctx).Model(&model.BorrowRecord{}).
 		Select("DATE_FORMAT(return_date, ?) as date, COUNT(*) as count", dateFormat).
 		Where("return_date BETWEEN ? AND ?", startDate, endDate).
 		Where("return_date IS NOT NULL").
@@ -147,7 +165,7 @@ func (r *StatsRepository) GetBorrowStatsByDateRange(ctx context.Context, startDa
 		dateSet[b.Date] = true
 	}
 	for _, r := range returnStats {
-		returnMap[r. Date] = r.Count
+		returnMap[r.Date] = r.Count
 		dateSet[r.Date] = true
 	}
 
@@ -170,9 +188,9 @@ func (r *StatsRepository) CountBorrowsByDateRange(ctx context.Context, startDate
 	return count, err
 }
 
-func (r *StatsRepository) CountReturnsByDateRange(ctx context. Context, startDate, endDate time.Time) (int64, error) {
+func (r *StatsRepository) CountReturnsByDateRange(ctx context.Context, startDate, endDate time.Time) (int64, error) {
 	var count int64
-	err := r.db. WithContext(ctx).Model(&model.BorrowRecord{}).
+	err := r.db.WithContext(ctx).Model(&model.BorrowRecord{}).
 		Where("return_date BETWEEN ? AND ?", startDate, endDate).
 		Where("return_date IS NOT NULL").
 		Count(&count).Error
@@ -191,7 +209,7 @@ func (r *StatsRepository) GetUserTotalBorrowCount(ctx context.Context, userID ui
 
 func (r *StatsRepository) GetUserTotalFine(ctx context.Context, userID uint64) (float64, error) {
 	var total float64
-	err := r. db.WithContext(ctx).Model(&model.BorrowRecord{}).
+	err := r.db.WithContext(ctx).Model(&model.BorrowRecord{}).
 		Select("COALESCE(SUM(fine), 0)").
 		Where("user_id = ?", userID).
 		Scan(&total).Error

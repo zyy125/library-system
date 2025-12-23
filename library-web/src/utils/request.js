@@ -54,40 +54,59 @@ service.interceptors.response.use(
   async error => {
     const originalRequest = error.config;
     
-    // 处理 401 Token 过期
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const refreshToken = getRefreshToken();
-      
-      if (refreshToken) {
-        try {
-          // 注意：这里必须用 axios 原生实例，不能用 service，否则死循环
-          const { data } = await axios.post('/api/users/refresh-token', {
-            refresh_token: refreshToken
-          });
-
-          if (data && data.code === 200) {
-            setToken(data.data.access_token);
-            setRefreshToken(data.data.refresh_token);
-            originalRequest.headers['Authorization'] = `Bearer ${data.data.access_token}`;
-            return axios(originalRequest);
-          }
-        } catch (refreshError) {
-          console.error('Token 刷新失败', refreshError);
-        }
+    // 处理 401 Token 过期（但要排除登录接口）
+    if (error.response && error.response.status === 401) {
+      // 如果是登录接口返回 401，说明是用户名或密码错误
+      if (originalRequest.url && originalRequest.url.includes('/login')) {
+        const errorMsg = error.response.data?.message || '用户名或密码错误';
+        $message.error(errorMsg);
+        return Promise.reject(new Error(errorMsg));
       }
-      clearAuth();
-      window.location.href = '/login';
-      return Promise.reject(error);
+      
+      // 其他 401 错误，尝试刷新 Token
+      if (!originalRequest._retry) {
+        originalRequest._retry = true;
+        const refreshToken = getRefreshToken();
+        
+        if (refreshToken) {
+          try {
+            // 注意：这里必须用 axios 原生实例，不能用 service，否则死循环
+            const { data } = await axios.post('/api/users/refresh-token', {
+              refresh_token: refreshToken
+            });
+
+            if (data && data.code === 200) {
+              setToken(data.data.access_token);
+              setRefreshToken(data.data.refresh_token);
+              originalRequest.headers['Authorization'] = `Bearer ${data.data.access_token}`;
+              return axios(originalRequest);
+            }
+          } catch (refreshError) {
+            console.error('Token 刷新失败', refreshError);
+          }
+        }
+        
+        clearAuth();
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
     }
     
-    // 处理通用 HTTP 错误
-    let msg = error.message;
+    // 处理其他 HTTP 错误（400, 403, 404, 500 等）
+    let msg = '请求失败';
+    
     if (error.response && error.response.data) {
-       // 尝试获取后端返回的详细错误信息
-       msg = error.response.data.message || error.response.statusText;
+      // 优先使用后端返回的 message 字段
+      if (error.response.data.message) {
+        msg = error.response.data.message;
+      } else if (error.response.statusText) {
+        msg = error.response.statusText;
+      }
+    } else if (error.message) {
+      msg = error.message;
     }
     
+    // 显示错误提示
     $message.error(msg);
     return Promise.reject(error);
   }
