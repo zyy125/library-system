@@ -1,11 +1,11 @@
 package app
 
-import(
+import (
+	"library-system/controller"
 	"library-system/database"
 	"library-system/repository"
-	"library-system/controller"
-	"library-system/service"
 	"library-system/scheduler"
+	"library-system/service"
 
 	"fmt"
 )
@@ -40,7 +40,7 @@ func InitApp() (*App, error) {
 	reservationService := service.NewReservationService(reservationRepo, bookRepo, userRepo)
 	borrowService := service.NewBorrowService(borrowRepo, bookRepo, userRepo, reservationRepo, reservationService, overdueService)
 	cateService := service.NewCategoryService(cateRepo)
-	statsService := service. NewStatsService(statsRepo, userRepo)
+	statsService := service.NewStatsService(statsRepo, userRepo)
 
 	overdueScheduler := scheduler.NewOverdueScheduler(overdueService)
 	reservationScheduler := scheduler.NewReservationScheduler(reservationService)
@@ -51,13 +51,17 @@ func InitApp() (*App, error) {
 	cateCtl := controller.NewCategoryController(cateService)
 	statsCtl := controller.NewStatsController(statsService)
 
-	ctl := controller.NewController(userCtl, bookCtl, borrowCtl, reservationCtl, cateCtl, statsCtl)
-
+	ctl := controller.NewController(controller.WithBook(bookCtl),
+									controller.WithBorrow(borrowCtl),
+									controller.WithCategory(cateCtl),
+									controller.WithUser(userCtl),
+									controller.WithReservation(reservationCtl),
+									controller.WithStats(statsCtl))
 
 	scheduler := &scheduler.Scheduler{OverdueScheduler: overdueScheduler, ReservationScheduler: reservationScheduler}
 	app := &App{
-		Controller:  ctl,
-		Scheduler:   scheduler,
+		Controller: ctl,
+		Scheduler:  scheduler,
 	}
 
 	// 启动定时任务
